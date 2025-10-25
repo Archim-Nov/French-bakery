@@ -55,7 +55,7 @@ const EndOfDaySummary: React.FC<EndOfDaySummaryProps> = ({ date, earnings, favor
                             <ul className="space-y-2">
                                 {favorabilityChanges.map(change => (
                                     <li key={change.customerId} className="flex items-center gap-4 p-2 bg-white/70 rounded-lg">
-                                        <img src={change.avatarUrl} alt={change.customerName} className="w-12 h-12 rounded-full border-2 border-amber-600" />
+                                        <div style={{ backgroundImage: `url(${change.avatarUrl})` }} aria-label={change.customerName} className="w-12 h-12 rounded-full border-2 border-amber-600 bg-cover bg-top shrink-0"></div>
                                         <div className="flex-grow">
                                             <p className="font-bold text-lg">{change.customerName}</p>
                                         </div>

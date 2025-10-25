@@ -92,6 +92,7 @@ export const COFFEE_RECIPES: CoffeeRecipe[] = [
 
 
 export const DECORATIONS: Decoration[] = [
+    { id: 'extra_stool', name: 'Extra Stool', type: 'seat', price: 300, icon: '🪑', description: 'Adds an extra seat for a customer. Does not add comfort.', comfortValue: 0, limit: 8 },
     // Standard Decorations
     { id: 'potted_fern', name: 'Potted Fern', type: 'plant', price: 150, icon: '🪴', description: 'A small plant to liven up a corner.', comfortValue: 2, limit: 3 },
     { id: 'comfy_chair', name: 'Comfy Chair', type: 'seat', price: 500, icon: '🛋️', description: 'A comfortable chair for the main seating area.', comfortValue: 5, limit: 2 },
