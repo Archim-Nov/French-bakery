@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Customer } from '../types';
 
@@ -15,7 +14,7 @@ const customerSchema = {
   required: ['name', 'personality', 'dialogue', 'avatarUrl'],
 };
 
-export const generateCustomer = async (): Promise<Omit<Customer, 'id'>> => {
+export const generateCustomer = async (): Promise<Omit<Customer, 'id' | 'favorability'>> => {
     try {
         const prompt = `Generate a unique and quirky character profile for a customer visiting a fantasy bakery. 
         Provide a name, a short personality description, a line of dialogue for ordering bread, and an avatar URL. 

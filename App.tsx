@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import NightScene from './components/NightScene';
 import DayScene from './components/DayScene';
@@ -36,11 +35,24 @@ const App: React.FC = () => {
             ...prev,
             breads: prev.breads.filter(b => b.id !== breadId)
         }));
-        if(currentCustomer) {
-            const customerExists = contacts.some(c => c.id === currentCustomer.id);
-            if (!customerExists) {
-                setContacts(prev => [...prev, currentCustomer]);
-            }
+        
+        if (currentCustomer) {
+            setContacts(prevContacts => {
+                const existingContactIndex = prevContacts.findIndex(c => c.id === currentCustomer.id);
+                if (existingContactIndex !== -1) {
+                    // Customer exists, update favorability
+                    const updatedContacts = [...prevContacts];
+                    const existingContact = updatedContacts[existingContactIndex];
+                    updatedContacts[existingContactIndex] = {
+                        ...existingContact,
+                        favorability: existingContact.favorability + 1,
+                    };
+                    return updatedContacts;
+                } else {
+                    // New customer, add to contacts with favorability 1
+                    return [...prevContacts, { ...currentCustomer, favorability: 1 }];
+                }
+            });
         }
         setCurrentCustomer(null); // Trigger new customer generation
     };
@@ -48,16 +60,30 @@ const App: React.FC = () => {
     const fetchNewCustomer = useCallback(async () => {
         if (isGeneratingCustomer || currentCustomer) return;
 
+        // Decide if a customer should return (40% chance if there are existing contacts)
+        const shouldReturn = contacts.length > 0 && Math.random() < 0.4;
+
+        if (shouldReturn) {
+            const returningCustomer = contacts[Math.floor(Math.random() * contacts.length)];
+            setCurrentCustomer(returningCustomer);
+            return;
+        }
+
+        // Otherwise, generate a new customer
         setIsGeneratingCustomer(true);
         try {
             const customerData = await generateCustomer();
-            setCurrentCustomer({ ...customerData, id: `customer-${Date.now()}` });
+            setCurrentCustomer({ 
+                ...customerData, 
+                id: `customer-${Date.now()}`,
+                favorability: 0, // A new face has no favorability yet
+            });
         } catch (error) {
             console.error("Failed to fetch new customer:", error);
         } finally {
             setIsGeneratingCustomer(false);
         }
-    }, [isGeneratingCustomer, currentCustomer]);
+    }, [isGeneratingCustomer, currentCustomer, contacts]);
 
     useEffect(() => {
         if (gamePhase === 'day' && !currentCustomer && !isGeneratingCustomer) {

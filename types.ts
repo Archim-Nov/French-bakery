@@ -1,4 +1,3 @@
-
 export type GamePhase = 'night' | 'day';
 
 export enum IngredientType {
@@ -30,6 +29,7 @@ export interface Customer {
     personality: string;
     dialogue: string;
     avatarUrl: string;
+    favorability: number;
 }
 
 export enum BakingStep {

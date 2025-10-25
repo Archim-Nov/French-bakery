@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import type { Customer } from '../types';
 
@@ -29,6 +28,9 @@ const ContactList: React.FC<ContactListProps> = ({ contacts }) => {
                                 <div>
                                     <p className="font-bold">{contact.name}</p>
                                     <p className="text-sm italic text-stone-600">"{contact.personality}"</p>
+                                    <div className="mt-1 text-red-500" title={`Favorability: ${contact.favorability}`}>
+                                        {'❤️'.repeat(contact.favorability)}
+                                    </div>
                                 </div>
                             </li>
                         ))

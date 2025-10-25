@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import type { Ingredients, Bread, DragItem } from '../types';
 import { IngredientType, BakingStep, BreadQuality } from '../types';
@@ -157,10 +156,10 @@ const NightScene: React.FC<NightSceneProps> = ({ gold, inventory, updateGold, up
             case BakingStep.Buy:
                 return (
                     <div className="text-center">
-                        <h2 className="text-3xl font-bold mb-4 text-stone-700">Ingredient Shop</h2>
+                        <h2 className="text-3xl font-bold mb-4 text-stone-300">Ingredient Shop</h2>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                             {Object.values(IngredientType).map(ing => (
-                                <button key={ing} onClick={() => handleBuyIngredient(ing)} className="p-4 bg-amber-200 rounded-lg shadow-md hover:bg-amber-300 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled={gold < INGREDIENT_PRICES[ing]}>
+                                <button key={ing} onClick={() => handleBuyIngredient(ing)} className="p-4 bg-amber-200 rounded-lg shadow-md hover:bg-amber-300 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-stone-800" disabled={gold < INGREDIENT_PRICES[ing]}>
                                     <span className="text-4xl">{INGREDIENT_EMOJIS[ing]}</span>
                                     <p className="font-bold capitalize">{ing}</p>
                                     <p className="text-sm">🪙 {INGREDIENT_PRICES[ing]}</p>
@@ -175,19 +174,19 @@ const NightScene: React.FC<NightSceneProps> = ({ gold, inventory, updateGold, up
                      <div className="flex flex-col md:flex-row gap-8 items-start">
                         <div className="w-full md:w-1/3">
                             <h2 className="text-2xl font-bold mb-2">Your Ingredients</h2>
-                             <div className="grid grid-cols-3 gap-2 p-2 bg-stone-200/50 rounded-lg">
+                             <div className="grid grid-cols-3 gap-2 p-2 bg-stone-800/50 rounded-lg">
                                  {Object.values(IngredientType).map(ing => (
-                                     <div key={ing} draggable={inventory.ingredients[ing] > 0} onDragStart={(e) => handleDragStart(e, ing)} onDragEnd={handleDragEnd} className={`p-3 text-center rounded-md ${inventory.ingredients[ing] > 0 ? 'bg-amber-100 cursor-grab active:cursor-grabbing' : 'bg-stone-300 opacity-50'}`}>
+                                     <div key={ing} draggable={inventory.ingredients[ing] > 0} onDragStart={(e) => handleDragStart(e, ing)} onDragEnd={handleDragEnd} className={`p-3 text-center rounded-md ${inventory.ingredients[ing] > 0 ? 'bg-amber-100 cursor-grab active:cursor-grabbing' : 'bg-stone-500 opacity-50'}`}>
                                          <span className="text-3xl">{INGREDIENT_EMOJIS[ing]}</span>
-                                         <p className="font-semibold text-sm">x{inventory.ingredients[ing] || 0}</p>
+                                         <p className="font-semibold text-sm text-stone-800">x{inventory.ingredients[ing] || 0}</p>
                                      </div>
                                  ))}
                             </div>
                         </div>
                         <div className="w-full md:w-2/3 flex flex-col items-center">
                             <h2 className="text-2xl font-bold mb-2">Mixing Bowl</h2>
-                             <div onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} className="w-full h-48 bg-stone-300/80 rounded-full flex items-center justify-center border-4 border-dashed border-stone-400 transition-colors">
-                                 <p className="text-stone-500 text-lg">Drop ingredients here</p>
+                             <div onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} className="w-full h-48 bg-stone-500/80 rounded-full flex items-center justify-center border-4 border-dashed border-stone-400 transition-colors">
+                                 <p className="text-stone-300 text-lg">Drop ingredients here</p>
                                  <div className="flex text-4xl gap-2">
                                     {mixingBowl.map((ing, i) => <span key={i}>{INGREDIENT_EMOJIS[ing]}</span>)}
                                  </div>
@@ -207,7 +206,7 @@ const NightScene: React.FC<NightSceneProps> = ({ gold, inventory, updateGold, up
                         <div className="w-full bg-gray-200 rounded-full h-4 mt-4">
                              <div className="bg-green-500 h-4 rounded-full" style={{ width: `${(kneadCount / KNEAD_TARGET) * 100}%` }}></div>
                         </div>
-                        {kneadCount >= KNEAD_TARGET && <p className="mt-4 text-xl font-bold text-green-700 animate-pulse">Ready for the oven!</p>}
+                        {kneadCount >= KNEAD_TARGET && <p className="mt-4 text-xl font-bold text-green-300 animate-pulse">Ready for the oven!</p>}
                     </div>
                  );
              case BakingStep.Bake:
@@ -215,10 +214,10 @@ const NightScene: React.FC<NightSceneProps> = ({ gold, inventory, updateGold, up
                     <div className="text-center">
                         <h2 className="text-3xl font-bold mb-4">Baking Time!</h2>
                         <p className="mb-4">Take it out when it's golden brown!</p>
-                        <div className="w-64 h-40 bg-gray-700 rounded-lg mx-auto flex items-center justify-center p-4" style={{border: '10px solid #4a5568'}}>
+                        <div className="w-64 h-40 bg-gray-800 rounded-lg mx-auto flex items-center justify-center p-4" style={{border: '10px solid #4a5568'}}>
                             <div className="w-24 h-24 rounded-full" style={{ backgroundColor: getBreadColor() }}></div>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
+                        <div className="w-full bg-gray-400 rounded-full h-2.5 mt-4">
                             <div className="bg-orange-500 h-2.5 rounded-full" style={{ width: `${(bakeProgress / BAKE_TIME_MS) * 100}%` }}></div>
                             <div className="relative h-0">
                                 <div className="absolute bg-green-500 h-4 w-1 -bottom-1" style={{left: `${(BAKE_PERFECT_START_MS / BAKE_TIME_MS) * 100}%`}}></div>
@@ -232,7 +231,7 @@ const NightScene: React.FC<NightSceneProps> = ({ gold, inventory, updateGold, up
             case BakingStep.Finished:
                 return (
                     <div className="text-center">
-                        <h2 className="text-3xl font-bold mb-4 text-green-700">Baking Complete!</h2>
+                        <h2 className="text-3xl font-bold mb-4 text-green-300">Baking Complete!</h2>
                         <p className="mb-4">You've baked a new loaf of bread.</p>
                         <button onClick={() => setStep(BakingStep.Buy)} className="px-8 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg hover:bg-blue-700 transition-colors">Bake Another</button>
                     </div>
