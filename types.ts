@@ -30,6 +30,7 @@ export interface Customer {
     dialogue: string;
     avatarUrl: string;
     favorability: number;
+    conversation: { role: 'player' | 'customer'; text: string }[];
 }
 
 export enum BakingStep {

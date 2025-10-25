@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Content } from "@google/genai";
 import type { Customer } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
@@ -14,7 +14,7 @@ const customerSchema = {
   required: ['name', 'personality', 'dialogue', 'avatarUrl'],
 };
 
-export const generateCustomer = async (): Promise<Omit<Customer, 'id' | 'favorability'>> => {
+export const generateCustomer = async (): Promise<Omit<Customer, 'id' | 'favorability' | 'conversation'>> => {
     try {
         const prompt = `Generate a unique and quirky character profile for a customer visiting a fantasy bakery. 
         Provide a name, a short personality description, a line of dialogue for ordering bread, and an avatar URL. 
@@ -48,5 +48,32 @@ export const generateCustomer = async (): Promise<Omit<Customer, 'id' | 'favorab
             dialogue: "I seem to have misplaced my lunch... got a simple loaf?",
             avatarUrl: `https://picsum.photos/100?random=${Math.random()}`,
         };
+    }
+};
+
+export const continueConversation = async (
+    personality: string,
+    history: { role: string; text: string }[]
+): Promise<string> => {
+    try {
+        const systemInstruction = `You are a character in a bakery game. Your personality is: "${personality}". You are talking to the baker. Respond to the player as this character. Keep your responses very short and in character, like a brief chat in a shop.`;
+
+        const contents: Content[] = history.map(msg => ({
+            role: msg.role === 'player' ? 'user' : 'model',
+            parts: [{ text: msg.text }],
+        }));
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: contents,
+            config: {
+                systemInstruction: systemInstruction,
+            },
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error("Error continuing conversation:", error);
+        return "I'm sorry, I'm a bit lost for words right now.";
     }
 };

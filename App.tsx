@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import NightScene from './components/NightScene';
 import DayScene from './components/DayScene';
-import { generateCustomer } from './services/geminiService';
+import { generateCustomer, continueConversation } from './services/geminiService';
 import type { GamePhase, Ingredients, Bread, Customer } from './types';
 import { IngredientType } from './types';
 
@@ -21,6 +21,7 @@ const App: React.FC = () => {
     const [contacts, setContacts] = useState<Customer[]>([]);
     const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
     const [isGeneratingCustomer, setIsGeneratingCustomer] = useState<boolean>(false);
+    const [isReplying, setIsReplying] = useState<boolean>(false);
 
     const updateGold = (amount: number) => {
         setGold(prev => Math.max(0, prev + amount));
@@ -40,11 +41,11 @@ const App: React.FC = () => {
             setContacts(prevContacts => {
                 const existingContactIndex = prevContacts.findIndex(c => c.id === currentCustomer.id);
                 if (existingContactIndex !== -1) {
-                    // Customer exists, update favorability
+                    // Customer exists, update favorability and conversation
                     const updatedContacts = [...prevContacts];
                     const existingContact = updatedContacts[existingContactIndex];
                     updatedContacts[existingContactIndex] = {
-                        ...existingContact,
+                        ...currentCustomer, // This includes the latest conversation
                         favorability: existingContact.favorability + 1,
                     };
                     return updatedContacts;
@@ -65,7 +66,8 @@ const App: React.FC = () => {
 
         if (shouldReturn) {
             const returningCustomer = contacts[Math.floor(Math.random() * contacts.length)];
-            setCurrentCustomer(returningCustomer);
+            // Reset conversation for the new day to keep it fresh
+            setCurrentCustomer({ ...returningCustomer, conversation: [] });
             return;
         }
 
@@ -76,7 +78,8 @@ const App: React.FC = () => {
             setCurrentCustomer({ 
                 ...customerData, 
                 id: `customer-${Date.now()}`,
-                favorability: 0, // A new face has no favorability yet
+                favorability: 0,
+                conversation: [],
             });
         } catch (error) {
             console.error("Failed to fetch new customer:", error);
@@ -84,6 +87,30 @@ const App: React.FC = () => {
             setIsGeneratingCustomer(false);
         }
     }, [isGeneratingCustomer, currentCustomer, contacts]);
+
+    const handleSendMessage = async (message: string) => {
+        if (!currentCustomer) return;
+        setIsReplying(true);
+
+        const playerMessage = { role: 'player' as const, text: message };
+        const updatedConversation = [...currentCustomer.conversation, playerMessage];
+        
+        setCurrentCustomer(prev => prev ? { ...prev, conversation: updatedConversation } : null);
+
+        try {
+            const aiResponseText = await continueConversation(currentCustomer.personality, updatedConversation);
+            const customerMessage = { role: 'customer' as const, text: aiResponseText };
+            
+            setCurrentCustomer(prev => prev ? { ...prev, conversation: [...updatedConversation, customerMessage] } : null);
+
+        } catch (error) {
+            console.error("Error in conversation:", error);
+            const errorMessage = { role: 'customer' as const, text: "I... I don't know what to say." };
+            setCurrentCustomer(prev => prev ? { ...prev, conversation: [...updatedConversation, errorMessage] } : null);
+        } finally {
+            setIsReplying(false);
+        }
+    };
 
     useEffect(() => {
         if (gamePhase === 'day' && !currentCustomer && !isGeneratingCustomer) {
@@ -113,9 +140,11 @@ const App: React.FC = () => {
             contacts={contacts}
             currentCustomer={currentCustomer}
             isGeneratingCustomer={isGeneratingCustomer}
+            isReplying={isReplying}
             updateGold={updateGold}
             onSellBread={handleSellBread}
             onEndDay={() => setGamePhase('night')}
+            onSendMessage={handleSendMessage}
         />
     );
 };
