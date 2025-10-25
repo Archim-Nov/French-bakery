@@ -271,36 +271,46 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
 
             <main className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 grid grid-rows-2 gap-8">
-                    <div className="bg-white/70 p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center min-h-[300px]">
-                        {isGeneratingCustomer && <div className="text-center"><p className="text-2xl animate-pulse">A new customer is arriving...</p></div>}
+                    <div className="bg-white/70 p-6 rounded-2xl shadow-lg flex flex-col min-h-[300px]">
+                        {isGeneratingCustomer && <div className="flex-grow flex items-center justify-center text-center"><p className="text-2xl animate-pulse">A new customer is arriving...</p></div>}
                         {!isGeneratingCustomer && currentCustomer && (
-                            <div className="w-full flex flex-col items-center">
-                                <div onDrop={handleCustomerDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} className="text-center p-6 border-4 border-dashed border-transparent rounded-full transition-all duration-300">
-                                    <img src={currentCustomer.avatarUrl} alt={currentCustomer.name} className="w-32 h-32 rounded-full mx-auto mb-4 border-4 border-amber-600 shadow-xl" />
+                            <div className="w-full h-full flex flex-col md:flex-row items-center justify-center gap-4 lg:gap-8">
+                                {/* Left side: Character Portrait */}
+                                <div onDrop={handleCustomerDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} className="p-2 border-4 border-dashed border-transparent rounded-lg transition-all duration-300 h-full flex items-center justify-center">
+                                    <img 
+                                        src={currentCustomer.avatarUrl} 
+                                        alt={currentCustomer.name} 
+                                        className="max-h-[300px] md:max-h-[450px] w-auto object-contain drop-shadow-lg" 
+                                    />
+                                </div>
+                                
+                                {/* Right side: Dialogue & Chat */}
+                                <div className="w-full max-w-lg flex-1 flex flex-col items-center justify-center">
                                     <h2 className="text-3xl font-bold">{currentCustomer.name}</h2>
-                                    <div className="relative mt-4 bg-amber-50 p-4 rounded-lg shadow-md max-w-md mx-auto">
-                                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-amber-50"></div>
+                                    <div className="relative mt-4 bg-amber-50 p-4 rounded-lg shadow-md w-full">
+                                        <div className="absolute top-1/2 -translate-y-1/2 left-[-15px] w-0 h-0 border-t-8 border-b-8 border-r-[16px] border-t-transparent border-b-transparent border-r-amber-50 hidden md:block"></div>
                                         <p className="text-lg italic">"{currentCustomer.dialogue}"</p>
                                     </div>
-                                </div>
-                                {currentCustomer.favorability >= 1 && (
-                                    <div className="mt-6 w-full max-w-lg bg-stone-100 rounded-lg shadow-inner p-4 flex flex-col">
-                                        <h3 className="text-lg font-bold text-stone-700 mb-2 text-center">Chat with {currentCustomer.name}</h3>
-                                        <div ref={chatHistoryRef} className="flex-grow h-48 overflow-y-auto mb-2 p-2 bg-white rounded">
-                                            {currentCustomer.conversation.map((msg, index) => (
-                                                <div key={index} className={`chat ${msg.role === 'player' ? 'chat-end' : 'chat-start'}`}><div className={`chat-bubble text-white ${msg.role === 'player' ? 'bg-blue-500' : 'bg-green-600'}`}>{msg.text}</div></div>
-                                            ))}
-                                            {isReplying && <div className="chat chat-start"><div className="chat-bubble bg-green-600/70 animate-pulse">...</div></div>}
+
+                                    {currentCustomer.favorability >= 1 && (
+                                        <div className="mt-6 w-full max-w-lg bg-stone-100 rounded-lg shadow-inner p-4 flex flex-col">
+                                            <h3 className="text-lg font-bold text-stone-700 mb-2 text-center">Chat with {currentCustomer.name}</h3>
+                                            <div ref={chatHistoryRef} className="flex-grow h-48 overflow-y-auto mb-2 p-2 bg-white rounded">
+                                                {currentCustomer.conversation.map((msg, index) => (
+                                                    <div key={index} className={`chat ${msg.role === 'player' ? 'chat-end' : 'chat-start'}`}><div className={`chat-bubble text-white ${msg.role === 'player' ? 'bg-blue-500' : 'bg-green-600'}`}>{msg.text}</div></div>
+                                                ))}
+                                                {isReplying && <div className="chat chat-start"><div className="chat-bubble bg-green-600/70 animate-pulse">...</div></div>}
+                                            </div>
+                                            <form onSubmit={handleChatSubmit} className="flex gap-2">
+                                                <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Say something..." disabled={isReplying} className="flex-grow p-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"/>
+                                                <button type="submit" disabled={isReplying || !chatInput.trim()} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-stone-400">Send</button>
+                                            </form>
                                         </div>
-                                        <form onSubmit={handleChatSubmit} className="flex gap-2">
-                                            <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Say something..." disabled={isReplying} className="flex-grow p-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"/>
-                                            <button type="submit" disabled={isReplying || !chatInput.trim()} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-stone-400">Send</button>
-                                        </form>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         )}
-                        {!isGeneratingCustomer && !currentCustomer && <div className="text-center"><p className="text-2xl text-stone-600">Waiting for a customer...</p></div>}
+                        {!isGeneratingCustomer && !currentCustomer && <div className="flex-grow flex items-center justify-center text-center"><p className="text-2xl text-stone-600">Waiting for a customer...</p></div>}
                     </div>
                     <div className="bg-amber-200/60 p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center relative bg-cover bg-center" style={{backgroundImage: 'url("https://www.transparenttextures.com/patterns/wood-pattern.png")'}}>
                          <h2 className="text-2xl font-bold mb-4 text-amber-900 absolute top-4 left-4">Cafe Corner</h2>
@@ -313,7 +323,7 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                                 if (customer) {
                                     return (
                                         <div key={customer.id} onDrop={(e) => handleCafeDrop(e, customer.id)} onDragOver={handleDragOver} onDragLeave={handleDragLeave} className="text-center p-4 border-4 border-dashed border-transparent rounded-lg transition-all duration-300">
-                                            <img src={customer.avatarUrl} alt={customer.name} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-amber-700 shadow-xl" />
+                                            <div style={{ backgroundImage: `url(${customer.avatarUrl})` }} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-amber-700 shadow-xl bg-cover bg-top"></div>
                                             <h3 className="text-xl font-bold">{customer.name}</h3>
                                             <div className="relative mt-2 bg-white/80 p-3 rounded-lg shadow-md max-w-xs mx-auto">
                                                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-white/80"></div>

@@ -498,7 +498,7 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         {familiarContacts.map(contact => (
                             <div key={contact.id} className="p-4 bg-stone-800/80 rounded-lg text-center">
-                                <img src={contact.avatarUrl} alt={contact.name} className="w-24 h-24 rounded-full mx-auto mb-2 border-4 border-amber-600"/>
+                                <div style={{ backgroundImage: `url(${contact.avatarUrl})` }} aria-label={contact.name} className="w-24 h-24 rounded-full mx-auto mb-2 border-4 border-amber-600 bg-cover bg-top"></div>
                                 <h3 className="text-xl font-bold">{contact.name}</h3>
                                 <div className="text-red-500 my-1">{'❤️'.repeat(contact.favorability)}</div>
                                 <button onClick={() => onStartNightChat(contact)} className="mt-2 px-4 py-1 bg-blue-600 text-white rounded-full hover:bg-blue-700">

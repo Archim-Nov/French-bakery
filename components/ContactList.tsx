@@ -32,8 +32,8 @@ const ContactList: React.FC<ContactListProps> = ({ townsfolk }) => {
                     ) : (
                         sortedTownsfolk.map(character => (
                             <li key={character.id} className={`flex items-center gap-4 p-2 mb-2 bg-white/50 rounded-lg transition-opacity ${character.favorability === 0 ? 'opacity-70' : ''}`}>
-                                <img src={character.avatarUrl} alt={character.name} className="w-12 h-12 rounded-full border-2 border-amber-600" />
-                                <div>
+                                <div style={{ backgroundImage: `url(${character.avatarUrl})` }} aria-label={character.name} className="w-12 h-12 rounded-full border-2 border-amber-600 bg-cover bg-top shrink-0"></div>
+                                <div className="flex-grow">
                                     <p className="font-bold">{character.name}</p>
                                     <div className="mt-1 text-red-500" title={`Favorability: ${character.favorability}`}>
                                         {character.favorability > 0 ? '❤️'.repeat(character.favorability) : '🤍'}
