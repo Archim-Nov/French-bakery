@@ -1,24 +1,24 @@
 import { GoogleGenAI, Type, Content } from "@google/genai";
-import type { Customer } from '../types';
+import type { Mood } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
-const customerSchema = {
+const dialogueSchema = {
   type: Type.OBJECT,
   properties: {
-    name: { type: Type.STRING, description: 'The customer\'s name.' },
-    personality: { type: Type.STRING, description: 'A short, quirky personality description.' },
-    dialogue: { type: Type.STRING, description: 'What they say when ordering bread.' },
-    avatarUrl: { type: Type.STRING, description: 'A URL from picsum.photos, size 100x100.' },
+    dialogue: { type: Type.STRING, description: 'What they say when ordering bread, reflecting their mood.' },
+    coffeeDialogue: { type: Type.STRING, description: 'What they say when deciding to stay for a coffee, reflecting their mood.' },
   },
-  required: ['name', 'personality', 'dialogue', 'avatarUrl'],
+  required: ['dialogue', 'coffeeDialogue'],
 };
 
-export const generateCustomer = async (): Promise<Omit<Customer, 'id' | 'favorability' | 'conversation'>> => {
+export const generateDailyDialogue = async (personality: string, name: string, mood: Mood): Promise<{dialogue: string, coffeeDialogue: string}> => {
     try {
-        const prompt = `Generate a unique and quirky character profile for a customer visiting a fantasy bakery. 
-        Provide a name, a short personality description, a line of dialogue for ordering bread, and an avatar URL. 
-        The avatar URL must be a valid URL from picsum.photos with a size of 100x100 pixels (e.g., https://picsum.photos/100).
+        const prompt = `You are a character named ${name} in a bakery game. Your personality is: "${personality}". 
+        Today, your mood is ${mood}. 
+        Generate two short, in-character lines of dialogue based on this mood:
+        1. A greeting when you enter the bakery to order bread.
+        2. A comment you'd make if you decide to stay for a coffee.
         Return the response strictly as a JSON object matching the provided schema. Do not include any markdown formatting.`;
 
         const response = await ai.models.generateContent({
@@ -26,30 +26,28 @@ export const generateCustomer = async (): Promise<Omit<Customer, 'id' | 'favorab
             contents: prompt,
             config: {
                 responseMimeType: 'application/json',
-                responseSchema: customerSchema,
+                responseSchema: dialogueSchema,
             },
         });
 
-        const customerData = JSON.parse(response.text);
+        const dialogueData = JSON.parse(response.text);
         
-        // Basic validation
-        if (customerData.name && customerData.personality && customerData.dialogue && customerData.avatarUrl) {
-            return customerData;
+        if (dialogueData.dialogue && dialogueData.coffeeDialogue) {
+            return dialogueData;
         } else {
             throw new Error("Generated data is missing required fields.");
         }
 
     } catch (error) {
-        console.error("Error generating customer:", error);
-        // Fallback customer
+        console.error(`Error generating dialogue for ${name}:`, error);
+        // Fallback dialogue
         return {
-            name: "Barnaby the Baker",
-            personality: "A friendly baker who forgot his own bread.",
-            dialogue: "I seem to have misplaced my lunch... got a simple loaf?",
-            avatarUrl: `https://picsum.photos/100?random=${Math.random()}`,
+            dialogue: "Just a regular loaf for me, please.",
+            coffeeDialogue: "I suppose I have time for a coffee.",
         };
     }
 };
+
 
 export const continueConversation = async (
     personality: string,

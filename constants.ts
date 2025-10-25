@@ -1,5 +1,4 @@
-
-import { IngredientType, BreadQuality } from './types';
+import { IngredientType, BreadQuality, Decoration, CoffeeType, CoffeeRecipe } from './types';
 
 export const INGREDIENT_PRICES: Record<IngredientType, number> = {
     [IngredientType.Flour]: 5,
@@ -7,18 +6,44 @@ export const INGREDIENT_PRICES: Record<IngredientType, number> = {
     [IngredientType.Yeast]: 3,
     [IngredientType.Salt]: 2,
     [IngredientType.Sugar]: 4,
+    [IngredientType.RyeFlour]: 6,
+    [IngredientType.WholeWheatFlour]: 6,
+    [IngredientType.StoneGroundFlour]: 7,
+    [IngredientType.NaturalYeast]: 5,
+    [IngredientType.SourdoughYeast]: 5,
+    [IngredientType.Egg]: 3,
+    [IngredientType.Butter]: 8,
+    [IngredientType.Milk]: 4,
+    [IngredientType.Chocolate]: 10,
+    [IngredientType.ApplePuree]: 6,
+    [IngredientType.Cinnamon]: 5,
+    [IngredientType.Cream]: 7,
+    [IngredientType.Raisins]: 6,
+    [IngredientType.OliveOil]: 8,
+    [IngredientType.Herbs]: 5,
+    [IngredientType.ChoppedOlives]: 7,
+    [IngredientType.ChocolateChips]: 9,
+    [IngredientType.ChoppedWalnuts]: 8,
+    [IngredientType.Sesame]: 4,
+    [IngredientType.Honey]: 7,
+    [IngredientType.SunDriedTomatoes]: 9,
+    [IngredientType.BuckwheatFlour]: 7,
+    [IngredientType.Oats]: 5,
+    [IngredientType.SunflowerSeeds]: 6,
+    [IngredientType.FlaxSeeds]: 6,
 };
 
-export const BREAD_SALE_PRICES: Record<BreadQuality, number> = {
-    [BreadQuality.Perfect]: 20,
-    [BreadQuality.Undercooked]: 5,
-    [BreadQuality.Burnt]: 2,
+export const BREAD_SALE_PRICE_MODIFIERS: Record<BreadQuality, number> = {
+    [BreadQuality.Perfect]: 1.0,
+    [BreadQuality.Undercooked]: 0.5,
+    [BreadQuality.Burnt]: 0.2,
 };
 
-export const KNEAD_TARGET = 15;
-export const BAKE_TIME_MS = 10000; // 10 seconds
-export const BAKE_PERFECT_START_MS = 7000;
-export const BAKE_PERFECT_END_MS = 9000;
+export const KNEAD_TARGET = 15; // Default knead target
+export const BAKE_TIME_MS = 10000; // Default bake time: 10 seconds
+export const BAKE_PERFECT_WINDOW_START = 0.7; // 70%
+export const BAKE_PERFECT_WINDOW_END = 0.9; // 90%
+
 
 export const INGREDIENT_EMOJIS: Record<IngredientType, string> = {
     [IngredientType.Flour]: '🌾',
@@ -26,4 +51,62 @@ export const INGREDIENT_EMOJIS: Record<IngredientType, string> = {
     [IngredientType.Yeast]: '🦠',
     [IngredientType.Salt]: '🧂',
     [IngredientType.Sugar]: '🍬',
+    [IngredientType.RyeFlour]: '🌱',
+    [IngredientType.WholeWheatFlour]: '🍞',
+    [IngredientType.StoneGroundFlour]: '🪨',
+    [IngredientType.NaturalYeast]: '🌿',
+    [IngredientType.SourdoughYeast]: ' sourdough',
+    [IngredientType.Egg]: '🥚',
+    [IngredientType.Butter]: '🧈',
+    [IngredientType.Milk]: '🥛',
+    [IngredientType.Chocolate]: '🍫',
+    [IngredientType.ApplePuree]: '🍎',
+    [IngredientType.Cinnamon]: '🪵',
+    [IngredientType.Cream]: '🍦',
+    [IngredientType.Raisins]: '🍇',
+    [IngredientType.OliveOil]: '🫒',
+    [IngredientType.Herbs]: '🌿',
+    [IngredientType.ChoppedOlives]: '🫒',
+    [IngredientType.ChocolateChips]: '🍪',
+    [IngredientType.ChoppedWalnuts]: '🌰',
+    [IngredientType.Sesame]: ' Sesame',
+    [IngredientType.Honey]: '🍯',
+    [IngredientType.SunDriedTomatoes]: '🍅',
+    [IngredientType.BuckwheatFlour]: '🌾',
+    [IngredientType.Oats]: ' Oats',
+    [IngredientType.SunflowerSeeds]: '🌻',
+    [IngredientType.FlaxSeeds]: '🟤',
 };
+
+export const GRIND_TARGET = 10;
+export const BREW_TIME_MS = 5000; // 5 seconds
+export const COMFORT_PRICE_BONUS_PER_POINT = 0.1; // 1 gold per 10 comfort points
+
+export const COFFEE_RECIPES: CoffeeRecipe[] = [
+    { name: CoffeeType.Espresso, ingredients: {}, basePrice: 8, icon: '☕' },
+    { name: CoffeeType.CafeAuLait, ingredients: { [IngredientType.Milk]: 1 }, basePrice: 12, icon: '☕' },
+    { name: CoffeeType.Cappuccino, ingredients: { [IngredientType.Milk]: 1 }, basePrice: 13, icon: ' cappuccino' },
+    { name: CoffeeType.Mocha, ingredients: { [IngredientType.Milk]: 1, [IngredientType.Chocolate]: 1 }, basePrice: 15, icon: '🍫' },
+    { name: CoffeeType.LatteMacchiato, ingredients: { [IngredientType.Milk]: 1 }, basePrice: 14, icon: ' latte' },
+];
+
+
+export const DECORATIONS: Decoration[] = [
+    // Standard Decorations
+    { id: 'potted_fern', name: 'Potted Fern', type: 'plant', price: 150, icon: '🪴', description: 'A small plant to liven up a corner.', comfortValue: 2, limit: 3 },
+    { id: 'comfy_chair', name: 'Comfy Chair', type: 'seat', price: 500, icon: '🛋️', description: 'A comfortable chair for the main seating area.', comfortValue: 5, limit: 2 },
+    { id: 'wall_art', name: 'Wall Art', type: 'decor', price: 300, icon: '🖼️', description: 'Enhances the wall\'s aesthetic and artistic atmosphere.', comfortValue: 3, limit: 3 },
+    { id: 'table_flowers', name: 'Table Flowers', type: 'decor', price: 250, icon: '💐', description: 'A small vase of flowers for the tables.', comfortValue: 2, limit: 5 },
+    { id: 'candle_set', name: 'Candle Set', type: 'decor', price: 350, icon: '🕯️', description: 'Soft candlelight for a romantic evening atmosphere.', comfortValue: 4, limit: 3 },
+    { id: 'fairy_lights', name: 'Fairy Lights', type: 'decor', price: 200, icon: '✨', description: 'Hanging lights for a warm, magical feel.', comfortValue: 3, limit: 2 },
+    { id: 'window_curtains', name: 'Window Curtains', type: 'decor', price: 300, icon: '🪟', description: 'Softens the light and improves comfort.', comfortValue: 3, limit: 2 },
+    { id: 'chalkboard_sign', name: 'Chalkboard Sign', type: 'decor', price: 200, icon: ' chalkboard', description: 'A welcome sign at the entrance to improve friendliness.', comfortValue: 2, limit: 1 },
+    { id: 'music_player', name: 'Music Player', type: 'decor', price: 600, icon: '🎵', description: 'Provides music for the entire hall, creating atmosphere.', comfortValue: 6, limit: 1 },
+    { id: 'seasonal_garland', name: 'Seasonal Garland', type: 'decor', price: 450, icon: '🎉', description: 'Limited decoration used during festivals.', comfortValue: 4, limit: 2 },
+    // Large Premium Decorations
+    { id: 'chandelier', name: 'Chandelier', type: 'decor', price: 1200, icon: '💎', description: 'A high-end chandelier hanging in the center.', comfortValue: 12, limit: 1 },
+    { id: 'fireplace', name: 'Fireplace', type: 'decor', price: 1000, icon: '🔥', description: 'Provides warmth and a visual focus in winter.', comfortValue: 10, limit: 1 },
+    { id: 'indoor_fountain', name: 'Indoor Fountain', type: 'decor', price: 1300, icon: '⛲', description: 'The sound of flowing water brings a calm, relaxing atmosphere.', comfortValue: 14, limit: 1 },
+    { id: 'vintage_piano', name: 'Vintage Piano', type: 'decor', price: 1500, icon: '🎹', description: 'A high-end decoration that may attract special customers.', comfortValue: 15, limit: 1 },
+    { id: 'large_plant_wall', name: 'Large Plant Wall', type: 'plant', price: 900, icon: '🌿', description: 'A full wall of greenery, injecting nature into the café.', comfortValue: 10, limit: 1 },
+];

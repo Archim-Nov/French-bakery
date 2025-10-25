@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import NightScene from './components/NightScene';
 import DayScene from './components/DayScene';
-import { generateCustomer, continueConversation } from './services/geminiService';
-import type { GamePhase, Ingredients, Bread, Customer } from './types';
-import { IngredientType } from './types';
+import EndOfDaySummary from './components/EndOfDaySummary';
+import { generateDailyDialogue, continueConversation } from './services/geminiService';
+import type { GamePhase, Ingredients, Bread, Customer, Decoration, Mood, CoffeeType, GameDate, FavorabilityChange } from './types';
+import { IngredientType, Season } from './types';
+import { COFFEE_RECIPES, COMFORT_PRICE_BONUS_PER_POINT, DECORATIONS } from './constants';
+import { TOWNSFOLK } from './characters';
 
 const App: React.FC = () => {
     const [gamePhase, setGamePhase] = useState<GamePhase>('night');
+    const [gameDate, setGameDate] = useState<GameDate>({ year: 1, season: Season.Spring, day: 1 });
     const [gold, setGold] = useState<number>(50);
     const [inventory, setInventory] = useState<{ ingredients: Ingredients; breads: Bread[] }>({
         ingredients: {
@@ -18,17 +22,42 @@ const App: React.FC = () => {
         },
         breads: [],
     });
-    const [contacts, setContacts] = useState<Customer[]>([]);
+    const [townsfolk, setTownsfolk] = useState<Customer[]>(TOWNSFOLK);
     const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
+    const [seatedCustomers, setSeatedCustomers] = useState<Customer[]>([]);
+    const [maxSeats, setMaxSeats] = useState<number>(2);
+    const [purchasedDecorations, setPurchasedDecorations] = useState<string[]>([]);
     const [isGeneratingCustomer, setIsGeneratingCustomer] = useState<boolean>(false);
     const [isReplying, setIsReplying] = useState<boolean>(false);
+    const [nightChatCustomer, setNightChatCustomer] = useState<Customer | null>(null);
+    
+    // Daily tracking states
+    const [dailyEarnings, setDailyEarnings] = useState(0);
+    const [dailyFavorabilityChanges, setDailyFavorabilityChanges] = useState<FavorabilityChange[]>([]);
+
+
+    const cafeComfort = purchasedDecorations.reduce((total, decorId) => {
+        const decor = DECORATIONS.find(d => d.id === decorId);
+        return total + (decor?.comfortValue || 0);
+    }, 0);
 
     const updateGold = (amount: number) => {
+        if (amount > 0) {
+            setDailyEarnings(prev => prev + amount);
+        }
         setGold(prev => Math.max(0, prev + amount));
     };
 
     const updateInventory = (newInventory: { ingredients: Ingredients; breads: Bread[] }) => {
         setInventory(newInventory);
+    };
+
+    const handleFavorabilityIncrease = (customerId: string, customerName: string, avatarUrl: string, newLevel: number) => {
+        setDailyFavorabilityChanges(prev => {
+            const changesMap = new Map(prev.map(c => [c.customerId, c]));
+            changesMap.set(customerId, { customerId, customerName, newLevel, avatarUrl });
+            return Array.from(changesMap.values());
+        });
     };
 
     const handleSellBread = (breadId: string) => {
@@ -38,97 +67,237 @@ const App: React.FC = () => {
         }));
         
         if (currentCustomer) {
-            setContacts(prevContacts => {
-                const existingContactIndex = prevContacts.findIndex(c => c.id === currentCustomer.id);
-                if (existingContactIndex !== -1) {
-                    // Customer exists, update favorability and conversation
-                    const updatedContacts = [...prevContacts];
-                    const existingContact = updatedContacts[existingContactIndex];
-                    updatedContacts[existingContactIndex] = {
-                        ...currentCustomer, // This includes the latest conversation
-                        favorability: existingContact.favorability + 1,
-                    };
-                    return updatedContacts;
-                } else {
-                    // New customer, add to contacts with favorability 1
-                    return [...prevContacts, { ...currentCustomer, favorability: 1 }];
-                }
+            let updatedFavorability = currentCustomer.favorability;
+
+            setTownsfolk(prevTownsfolk => {
+                const updatedTownsfolk = prevTownsfolk.map(person => {
+                    if (person.id === currentCustomer.id) {
+                        updatedFavorability = person.favorability + 1;
+                        handleFavorabilityIncrease(person.id, person.name, person.avatarUrl, updatedFavorability);
+                        return { ...person, favorability: updatedFavorability, conversation: currentCustomer.conversation };
+                    }
+                    return person;
+                });
+                return updatedTownsfolk;
             });
+            
+            const willStay = Math.random() < updatedFavorability * 0.25;
+            if (willStay && seatedCustomers.length < maxSeats) {
+                setSeatedCustomers(prev => [...prev, currentCustomer]);
+            }
+            setCurrentCustomer(null);
         }
-        setCurrentCustomer(null); // Trigger new customer generation
     };
-    
-    const fetchNewCustomer = useCallback(async () => {
-        if (isGeneratingCustomer || currentCustomer) return;
 
-        // Decide if a customer should return (40% chance if there are existing contacts)
-        const shouldReturn = contacts.length > 0 && Math.random() < 0.4;
+    const handleServeCoffee = (customerId: string, coffeeType: CoffeeType) => {
+        const customer = seatedCustomers.find(c => c.id === customerId);
+        const recipe = COFFEE_RECIPES.find(r => r.name === coffeeType);
+        if (!customer || !recipe) return;
+        
+        // Consume ingredients
+        const newIngredients = { ...inventory.ingredients };
+        let canAffordIngredients = true;
+        for (const [ing, amount] of Object.entries(recipe.ingredients)) {
+            if ((newIngredients[ing as IngredientType] || 0) < amount) {
+                canAffordIngredients = false;
+                break;
+            }
+            newIngredients[ing as IngredientType] -= amount;
+        }
 
-        if (shouldReturn) {
-            const returningCustomer = contacts[Math.floor(Math.random() * contacts.length)];
-            // Reset conversation for the new day to keep it fresh
-            setCurrentCustomer({ ...returningCustomer, conversation: [] });
+        if (!canAffordIngredients) {
+            alert("You don't have the ingredients for this coffee!");
             return;
         }
 
-        // Otherwise, generate a new customer
+        const finalPrice = Math.round(recipe.basePrice + (cafeComfort * COMFORT_PRICE_BONUS_PER_POINT));
+        updateGold(finalPrice);
+        
+        setInventory({ ...inventory, ingredients: newIngredients });
+        
+        setTownsfolk(prev => prev.map(c => {
+            if (c.id === customerId) {
+                const newFavorability = c.favorability + 1;
+                handleFavorabilityIncrease(c.id, c.name, c.avatarUrl, newFavorability);
+                return { ...c, favorability: newFavorability };
+            }
+            return c;
+        }));
+
+        setSeatedCustomers(prev => prev.filter(c => c.id !== customerId));
+    };
+    
+    const prepareNextCustomer = useCallback(async () => {
+        if (isGeneratingCustomer || currentCustomer) return;
+
+        const availableTownsfolk = townsfolk.filter(
+            p => p.id !== currentCustomer?.id && !seatedCustomers.some(sc => sc.id === p.id)
+        );
+
+        if (availableTownsfolk.length === 0) {
+            return; // No one left to visit
+        }
+        
+        const nextVisitor = availableTownsfolk[Math.floor(Math.random() * availableTownsfolk.length)];
+
         setIsGeneratingCustomer(true);
         try {
-            const customerData = await generateCustomer();
+            const moods: Mood[] = ['happy', 'stressed', 'thoughtful', 'grumpy', 'energetic'];
+            const randomMood = moods[Math.floor(Math.random() * moods.length)];
+
+            const { dialogue, coffeeDialogue } = await generateDailyDialogue(nextVisitor.personality, nextVisitor.name, randomMood);
+            
             setCurrentCustomer({ 
-                ...customerData, 
-                id: `customer-${Date.now()}`,
-                favorability: 0,
-                conversation: [],
+                ...nextVisitor, 
+                dialogue,
+                coffeeDialogue,
+                mood: randomMood,
+                conversation: [], // Reset conversation for new visit
             });
         } catch (error) {
-            console.error("Failed to fetch new customer:", error);
+            console.error("Failed to prepare next customer:", error);
         } finally {
             setIsGeneratingCustomer(false);
         }
-    }, [isGeneratingCustomer, currentCustomer, contacts]);
+    }, [isGeneratingCustomer, currentCustomer, townsfolk, seatedCustomers]);
 
-    const handleSendMessage = async (message: string) => {
+    const handleDaySendMessage = async (message: string) => {
         if (!currentCustomer) return;
-        setIsReplying(true);
-
-        const playerMessage = { role: 'player' as const, text: message };
-        const updatedConversation = [...currentCustomer.conversation, playerMessage];
+        const activeCustomer = currentCustomer;
         
-        setCurrentCustomer(prev => prev ? { ...prev, conversation: updatedConversation } : null);
+        setIsReplying(true);
+        const playerMessage = { role: 'player' as const, text: message };
+        const updatedConversation = [...activeCustomer.conversation, playerMessage];
+        setCurrentCustomer({ ...activeCustomer, conversation: updatedConversation });
 
         try {
-            const aiResponseText = await continueConversation(currentCustomer.personality, updatedConversation);
+            const aiResponseText = await continueConversation(activeCustomer.personality, updatedConversation);
             const customerMessage = { role: 'customer' as const, text: aiResponseText };
-            
             setCurrentCustomer(prev => prev ? { ...prev, conversation: [...updatedConversation, customerMessage] } : null);
-
         } catch (error) {
             console.error("Error in conversation:", error);
-            const errorMessage = { role: 'customer' as const, text: "I... I don't know what to say." };
-            setCurrentCustomer(prev => prev ? { ...prev, conversation: [...updatedConversation, errorMessage] } : null);
         } finally {
             setIsReplying(false);
+        }
+    };
+    
+    const handleNightSendMessage = async (message: string) => {
+        if (!nightChatCustomer) return;
+        const activeCustomer = nightChatCustomer;
+
+        setIsReplying(true);
+        const playerMessage = { role: 'player' as const, text: message };
+        const updatedConversation = [...activeCustomer.conversation, playerMessage];
+        setNightChatCustomer({ ...activeCustomer, conversation: updatedConversation });
+        
+        try {
+            const aiResponseText = await continueConversation(activeCustomer.personality, updatedConversation);
+            const customerMessage = { role: 'customer' as const, text: aiResponseText };
+            
+            const finalConversation = [...updatedConversation, customerMessage];
+            setNightChatCustomer(prev => prev ? { ...prev, conversation: finalConversation } : null);
+            setTownsfolk(prev => prev.map(c => c.id === activeCustomer.id ? { ...c, conversation: finalConversation } : c));
+        } catch (error) {
+            console.error("Error in conversation:", error);
+        } finally {
+            setIsReplying(false);
+        }
+    };
+    
+    const handleBuyDecoration = (decoration: Decoration) => {
+        const count = purchasedDecorations.filter(id => id === decoration.id).length;
+        if (gold >= decoration.price && count < decoration.limit) {
+            updateGold(-decoration.price);
+            setPurchasedDecorations(prev => [...prev, decoration.id]);
+            if (decoration.type === 'seat') {
+                setMaxSeats(prev => prev + 1);
+            }
         }
     };
 
     useEffect(() => {
         if (gamePhase === 'day' && !currentCustomer && !isGeneratingCustomer) {
+             if (inventory.breads.length === 0 && seatedCustomers.length === 0) {
+                // Day is effectively over if no bread and no one is seated
+                return;
+             }
             const timer = setTimeout(() => {
-                fetchNewCustomer();
-            }, 1500); // Small delay before new customer arrives
+                prepareNextCustomer();
+            }, 2500);
             return () => clearTimeout(timer);
         }
-    }, [gamePhase, currentCustomer, isGeneratingCustomer, fetchNewCustomer]);
+    }, [gamePhase, currentCustomer, isGeneratingCustomer, prepareNextCustomer, inventory.breads, seatedCustomers]);
+    
+    const handleStartNightChat = (customer: Customer) => {
+        const fullCustomer = townsfolk.find(c => c.id === customer.id);
+        if(fullCustomer) setNightChatCustomer(fullCustomer);
+    }
+    const handleEndNightChat = () => {
+        setNightChatCustomer(null);
+    }
+    
+    const handleEndDay = () => {
+        setGamePhase('summary');
+    }
+
+    const handleCloseSummary = () => {
+        // Advance date
+        setGameDate(prevDate => {
+            let { year, season, day } = prevDate;
+            day++;
+            if (day > 30) {
+                day = 1;
+                switch (season) {
+                    case Season.Spring: season = Season.Summer; break;
+                    case Season.Summer: season = Season.Autumn; break;
+                    case Season.Autumn: season = Season.Winter; break;
+                    case Season.Winter:
+                        season = Season.Spring;
+                        year++;
+                        break;
+                }
+            }
+            return { year, season, day };
+        });
+
+        // Transition to night
+        setGamePhase('night');
+
+        // Reset daily states
+        setCurrentCustomer(null);
+        setSeatedCustomers([]);
+        setDailyEarnings(0);
+        setDailyFavorabilityChanges([]);
+    };
 
     if (gamePhase === 'night') {
         return (
             <NightScene 
                 gold={gold}
                 inventory={inventory}
+                townsfolk={townsfolk}
+                purchasedDecorations={purchasedDecorations}
+                nightChatCustomer={nightChatCustomer}
+                isReplying={isReplying}
+                gameDate={gameDate}
                 updateGold={updateGold}
                 updateInventory={updateInventory}
                 onEndNight={() => setGamePhase('day')}
+                onBuyDecoration={handleBuyDecoration}
+                onStartNightChat={handleStartNightChat}
+                onEndNightChat={handleEndNightChat}
+                onSendMessage={handleNightSendMessage}
+            />
+        );
+    }
+    
+    if (gamePhase === 'summary') {
+        return (
+            <EndOfDaySummary
+                date={gameDate}
+                earnings={dailyEarnings}
+                favorabilityChanges={dailyFavorabilityChanges}
+                onClose={handleCloseSummary}
             />
         );
     }
@@ -137,14 +306,21 @@ const App: React.FC = () => {
         <DayScene
             gold={gold}
             breads={inventory.breads}
-            contacts={contacts}
+            townsfolk={townsfolk}
+            inventoryIngredients={inventory.ingredients}
             currentCustomer={currentCustomer}
+            seatedCustomers={seatedCustomers}
+            maxSeats={maxSeats}
+            cafeComfort={cafeComfort}
+            purchasedDecorations={purchasedDecorations}
             isGeneratingCustomer={isGeneratingCustomer}
             isReplying={isReplying}
+            gameDate={gameDate}
             updateGold={updateGold}
             onSellBread={handleSellBread}
-            onEndDay={() => setGamePhase('night')}
-            onSendMessage={handleSendMessage}
+            onServeCoffee={handleServeCoffee}
+            onEndDay={handleEndDay}
+            onSendMessage={handleDaySendMessage}
         />
     );
 };
