@@ -220,7 +220,8 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                            {coffeeMix.map((ing, i) => <span key={i} title={ing}>{INGREDIENT_EMOJIS[ing]}</span>)}
                         </div>
                         <div className="grid grid-cols-2 gap-2 mb-4">
-                            {(['milk', 'chocolate'] as const).map(ing => (
+                            {/* FIX: Used IngredientType enum members instead of string literals to satisfy TypeScript's type checker for the coffeeMix state. */}
+                            {([IngredientType.Milk, IngredientType.Chocolate] as const).map(ing => (
                                 <button key={ing} onClick={() => setCoffeeMix(prev => [...prev, ing])}
                                 disabled={(inventoryIngredients[ing] || 0) <= coffeeMix.filter(i => i === ing).length}
                                 className="p-2 bg-amber-100 rounded-lg flex items-center justify-center gap-2 text-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-200">

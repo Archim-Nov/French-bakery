@@ -13,12 +13,38 @@ const App: React.FC = () => {
     const [gameDate, setGameDate] = useState<GameDate>({ year: 1, season: Season.Spring, day: 1 });
     const [gold, setGold] = useState<number>(50);
     const [inventory, setInventory] = useState<{ ingredients: Ingredients; breads: Bread[] }>({
+        // FIX: Initialize all ingredient types to satisfy the 'Ingredients' record type.
         ingredients: {
             [IngredientType.Flour]: 5,
             [IngredientType.Water]: 10,
             [IngredientType.Yeast]: 3,
             [IngredientType.Salt]: 3,
             [IngredientType.Sugar]: 2,
+            [IngredientType.RyeFlour]: 0,
+            [IngredientType.WholeWheatFlour]: 0,
+            [IngredientType.StoneGroundFlour]: 0,
+            [IngredientType.NaturalYeast]: 0,
+            [IngredientType.SourdoughYeast]: 0,
+            [IngredientType.Egg]: 0,
+            [IngredientType.Butter]: 0,
+            [IngredientType.Milk]: 0,
+            [IngredientType.Chocolate]: 0,
+            [IngredientType.ApplePuree]: 0,
+            [IngredientType.Cinnamon]: 0,
+            [IngredientType.Cream]: 0,
+            [IngredientType.Raisins]: 0,
+            [IngredientType.OliveOil]: 0,
+            [IngredientType.Herbs]: 0,
+            [IngredientType.ChoppedOlives]: 0,
+            [IngredientType.ChocolateChips]: 0,
+            [IngredientType.ChoppedWalnuts]: 0,
+            [IngredientType.Sesame]: 0,
+            [IngredientType.Honey]: 0,
+            [IngredientType.SunDriedTomatoes]: 0,
+            [IngredientType.BuckwheatFlour]: 0,
+            [IngredientType.Oats]: 0,
+            [IngredientType.SunflowerSeeds]: 0,
+            [IngredientType.FlaxSeeds]: 0,
         },
         breads: [],
     });
