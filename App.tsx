@@ -56,6 +56,7 @@ const App: React.FC = () => {
     const [isGeneratingCustomer, setIsGeneratingCustomer] = useState<boolean>(false);
     const [isReplying, setIsReplying] = useState<boolean>(false);
     const [nightChatCustomer, setNightChatCustomer] = useState<Customer | null>(null);
+    const [dayChatCustomer, setDayChatCustomer] = useState<Customer | null>(null);
     
     // Daily tracking states
     const [dailyEarnings, setDailyEarnings] = useState(0);
@@ -107,7 +108,20 @@ const App: React.FC = () => {
                 return updatedTownsfolk;
             });
             
-            const willStay = Math.random() < updatedFavorability * 0.25;
+            let stayProbability = 0;
+            switch (updatedFavorability) {
+                case 1: stayProbability = 0.15; break;
+                case 2: stayProbability = 0.30; break;
+                case 3: stayProbability = 0.45; break;
+                case 4: stayProbability = 0.60; break;
+                default:
+                    if (updatedFavorability >= 5) {
+                        stayProbability = 0.75;
+                    }
+                    break;
+            }
+
+            const willStay = Math.random() < stayProbability;
             if (willStay && seatedCustomers.length < maxSeats) {
                 setSeatedCustomers(prev => [...prev, currentCustomer]);
             }
@@ -229,6 +243,29 @@ const App: React.FC = () => {
             setIsReplying(false);
         }
     };
+
+    const handleDayChatSendMessage = async (message: string) => {
+        if (!dayChatCustomer) return;
+        const activeCustomer = dayChatCustomer;
+
+        setIsReplying(true);
+        const playerMessage = { role: 'player' as const, text: message };
+        const updatedConversation = [...activeCustomer.conversation, playerMessage];
+        setDayChatCustomer({ ...activeCustomer, conversation: updatedConversation });
+        
+        try {
+            const aiResponseText = await continueConversation(activeCustomer.personality, updatedConversation);
+            const customerMessage = { role: 'customer' as const, text: aiResponseText };
+            
+            const finalConversation = [...updatedConversation, customerMessage];
+            setDayChatCustomer(prev => prev ? { ...prev, conversation: finalConversation } : null);
+            setTownsfolk(prev => prev.map(c => c.id === activeCustomer.id ? { ...c, conversation: finalConversation } : c));
+        } catch (error) {
+            console.error("Error in day chat conversation:", error);
+        } finally {
+            setIsReplying(false);
+        }
+    };
     
     const handleBuyDecoration = (decoration: Decoration) => {
         const count = purchasedDecorations.filter(id => id === decoration.id).length;
@@ -261,6 +298,17 @@ const App: React.FC = () => {
     const handleEndNightChat = () => {
         setNightChatCustomer(null);
     }
+
+    const handleStartDayChat = (customerId: string) => {
+        const customer = townsfolk.find(c => c.id === customerId);
+        if (customer) {
+            setDayChatCustomer(customer);
+        }
+    };
+
+    const handleEndDayChat = () => {
+        setDayChatCustomer(null);
+    };
     
     const handleEndDay = () => {
         setGamePhase('summary');
@@ -342,11 +390,15 @@ const App: React.FC = () => {
             isGeneratingCustomer={isGeneratingCustomer}
             isReplying={isReplying}
             gameDate={gameDate}
+            dayChatCustomer={dayChatCustomer}
             updateGold={updateGold}
             onSellBread={handleSellBread}
             onServeCoffee={handleServeCoffee}
             onEndDay={handleEndDay}
             onSendMessage={handleDaySendMessage}
+            onStartDayChat={handleStartDayChat}
+            onEndDayChat={handleEndDayChat}
+            onDayChatSendMessage={handleDayChatSendMessage}
         />
     );
 };

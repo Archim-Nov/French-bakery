@@ -4,6 +4,7 @@ import type { Bread, Customer, DragItem, Ingredients, GameDate } from '../types'
 import { CoffeeStep, IngredientType, CoffeeType } from '../types';
 import ContactList from './ContactList';
 import { GRIND_TARGET, BREW_TIME_MS, COFFEE_RECIPES, INGREDIENT_EMOJIS } from '../constants';
+import ChatModal from './ChatModal';
 
 interface DaySceneProps {
     gold: number;
@@ -18,11 +19,15 @@ interface DaySceneProps {
     isGeneratingCustomer: boolean;
     isReplying: boolean;
     gameDate: GameDate;
+    dayChatCustomer: Customer | null;
     updateGold: (amount: number) => void;
     onSellBread: (breadId: string) => void;
     onServeCoffee: (customerId: string, coffeeType: CoffeeType) => void;
     onEndDay: () => void;
     onSendMessage: (message: string) => void;
+    onStartDayChat: (customerId: string) => void;
+    onEndDayChat: () => void;
+    onDayChatSendMessage: (message: string) => void;
 }
 
 const getWeekday = (day: number): string => {
@@ -35,7 +40,7 @@ const formatDate = (date: GameDate): string => {
 };
 
 const DayScene: React.FC<DaySceneProps> = (props) => {
-    const { gold, breads, townsfolk, inventoryIngredients, currentCustomer, seatedCustomers, maxSeats, cafeComfort, purchasedDecorations, isGeneratingCustomer, isReplying, gameDate, updateGold, onSellBread, onServeCoffee, onEndDay, onSendMessage } = props;
+    const { gold, breads, townsfolk, inventoryIngredients, currentCustomer, seatedCustomers, maxSeats, cafeComfort, purchasedDecorations, isGeneratingCustomer, isReplying, gameDate, dayChatCustomer, updateGold, onSellBread, onServeCoffee, onEndDay, onSendMessage, onStartDayChat, onEndDayChat, onDayChatSendMessage } = props;
     const [chatInput, setChatInput] = useState('');
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     
@@ -324,7 +329,11 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                                 if (customer) {
                                     return (
                                         <div key={customer.id} onDrop={(e) => handleCafeDrop(e, customer.id)} onDragOver={handleDragOver} onDragLeave={handleDragLeave} className="text-center p-4 border-4 border-dashed border-transparent rounded-lg transition-all duration-300">
-                                            <div style={{ backgroundImage: `url(${customer.avatarUrl})` }} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-amber-700 shadow-xl bg-cover bg-top"></div>
+                                            <div 
+                                                style={{ backgroundImage: `url(${customer.avatarUrl})` }} 
+                                                className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-amber-700 shadow-xl bg-cover bg-top cursor-pointer hover:scale-110 transition-transform"
+                                                onClick={() => onStartDayChat(customer.id)}
+                                            ></div>
                                             <h3 className="text-xl font-bold">{customer.name}</h3>
                                             <div className="relative mt-2 bg-white/80 p-3 rounded-lg shadow-md max-w-xs mx-auto">
                                                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-white/80"></div>
@@ -367,6 +376,14 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                 </div>
             </main>
             <ContactList townsfolk={townsfolk} />
+            {dayChatCustomer && (
+                <ChatModal
+                    customer={dayChatCustomer}
+                    isReplying={isReplying}
+                    onClose={onEndDayChat}
+                    onSendMessage={onDayChatSendMessage}
+                />
+            )}
         </div>
     );
 };

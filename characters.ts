@@ -217,7 +217,7 @@ export const TOWNSFOLK: Customer[] = [
         personality: 'A rival coffee cart vendor, aged 23. Your direct competitor. He was hired by Chloe as a "business weapon" to drive your "old, slow, expensive" bakery out of business with his "modern, cheap, fast" coffee, proving the town needs modernization. He is arrogant and a bit slick, but not a bad person—just a guy trying to make a living. Amandine was once his only customer.',
         dialogue: '',
         coffeeDialogue: '',
-        avatarUrl: 'https://free.picui.cn/free/2025/10/26/68fdf62d97631.png',
+        avatarUrl: 'https://free.picui.cn/free/2025/10/26/68fdf62dba320.png',
         favorability: 0,
         conversation: []
     }
