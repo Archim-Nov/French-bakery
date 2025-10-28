@@ -91,6 +91,7 @@ export enum BakingStep {
     Buy = 'buy',
     Mix = 'mix',
     Knead = 'knead',
+    Ferment = 'ferment',
     Bake = 'bake',
     Finished = 'finished'
 }

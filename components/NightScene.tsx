@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Ingredients, Bread, DragItem, Recipe, Decoration, Customer, GameDate } from '../types';
 import { IngredientType, BakingStep, BreadQuality } from '../types';
-import { INGREDIENT_PRICES, KNEAD_TARGET, BAKE_TIME_MS, BAKE_PERFECT_WINDOW_START, BAKE_PERFECT_WINDOW_END, BREAD_SALE_PRICE_MODIFIERS, INGREDIENT_EMOJIS, DECORATIONS } from '../constants';
+import { INGREDIENT_PRICES, KNEAD_TARGET, BAKE_TIME_MS, BAKE_PERFECT_WINDOW_START, BAKE_PERFECT_WINDOW_END, BREAD_SALE_PRICE_MODIFIERS, INGREDIENT_EMOJIS, DECORATIONS, SIMPLE_BAKE_DURATION_MS } from '../constants';
 import { BREAD_RECIPES } from '../recipes';
 import RecipeBook from './RecipeBook';
 import ChatModal from './ChatModal';
@@ -46,12 +46,16 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
     const [activeTab, setActiveTab] = useState<NightTab>('baking');
     const [recipeHint, setRecipeHint] = useState<string | null>(null);
 
+    // Fermentation mini-game state (new)
+    const [fermentProgress, setFermentProgress] = useState(0);
+    const [isFermenting, setIsFermenting] = useState(false);
+    const [fermentationOutcome, setFermentationOutcome] = useState<BreadQuality | null>(null);
 
-    // Dynamic baking parameters based on recipe
+    // Dynamic baking parameters based on recipe (now for fermentation)
     const kneadTarget = currentRecipe?.kneadTarget || KNEAD_TARGET;
-    const totalBakeTime = currentRecipe?.bakeTimeMs || BAKE_TIME_MS;
-    const perfectBakeStart = totalBakeTime * BAKE_PERFECT_WINDOW_START;
-    const perfectBakeEnd = totalBakeTime * BAKE_PERFECT_WINDOW_END;
+    const totalFermentTime = currentRecipe?.bakeTimeMs || BAKE_TIME_MS;
+    const perfectFermentStart = totalFermentTime * BAKE_PERFECT_WINDOW_START;
+    const perfectFermentEnd = totalFermentTime * BAKE_PERFECT_WINDOW_END;
 
 
     const handleBuyIngredient = (ingredient: IngredientType) => {
@@ -223,19 +227,25 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
 
     useEffect(() => {
         if (kneadCount >= kneadTarget) {
-            const timer = setTimeout(() => setStep(BakingStep.Bake), 1000);
+            const timer = setTimeout(() => {
+                setStep(BakingStep.Ferment);
+                setFermentationOutcome(null);
+                setFermentProgress(0);
+                setIsFermenting(false);
+            }, 1000);
             return () => clearTimeout(timer);
         }
     }, [kneadCount, kneadTarget]);
-
+    
+    // Fermentation timer
     useEffect(() => {
         let interval: number;
-        if (isBaking) {
+        if (isFermenting) {
             interval = window.setInterval(() => {
-                setBakeProgress(prev => {
+                setFermentProgress(prev => {
                     const newProgress = prev + 100;
-                    if (newProgress >= totalBakeTime + 1000) {
-                        handleFinishBaking(newProgress);
+                    if (newProgress >= totalFermentTime + 500) { // Auto-finish as burnt
+                        handleFinishFermenting(newProgress);
                         return prev;
                     }
                     return newProgress;
@@ -243,52 +253,81 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
             }, 100);
         }
         return () => window.clearInterval(interval);
-    }, [isBaking, totalBakeTime]);
+    }, [isFermenting, totalFermentTime]);
 
-    const handleFinishBaking = (currentTime = bakeProgress) => {
-        if (!currentRecipe) return;
-
-        setIsBaking(false);
-        setBakeProgress(0);
+    const handleFinishFermenting = (currentTime = fermentProgress) => {
+        if (!isFermenting) return;
+        setIsFermenting(false);
 
         let quality: BreadQuality;
-        if (currentTime < perfectBakeStart) {
+        if (currentTime < perfectFermentStart) {
             quality = BreadQuality.Undercooked;
-        } else if (currentTime <= perfectBakeEnd) {
+        } else if (currentTime <= perfectFermentEnd) {
             quality = BreadQuality.Perfect;
         } else {
             quality = BreadQuality.Burnt;
         }
+        setFermentationOutcome(quality);
 
-        const finalPrice = Math.round(currentRecipe.basePrice * BREAD_SALE_PRICE_MODIFIERS[quality]);
+        setTimeout(() => {
+            setStep(BakingStep.Bake);
+        }, 1500);
+    };
+
+    // Simple, non-interactive baking timer
+    useEffect(() => {
+        let interval: number;
+        if (step === BakingStep.Bake && !isBaking) {
+            setIsBaking(true);
+        }
+
+        if (isBaking) {
+            interval = window.setInterval(() => {
+                setBakeProgress(prev => {
+                    const newProgress = prev + 100;
+                    if (newProgress >= SIMPLE_BAKE_DURATION_MS) {
+                        handleFinishBaking();
+                        return SIMPLE_BAKE_DURATION_MS;
+                    }
+                    return newProgress;
+                });
+            }, 100);
+        }
+        return () => window.clearInterval(interval);
+    }, [step, isBaking]);
+
+
+    const handleFinishBaking = () => {
+        if (!currentRecipe || !fermentationOutcome) return;
+        
+        setIsBaking(false);
+
+        const finalPrice = Math.round(currentRecipe.basePrice * BREAD_SALE_PRICE_MODIFIERS[fermentationOutcome]);
 
         const newBread: Bread = {
             id: `bread-${Date.now()}`,
-            quality,
+            quality: fermentationOutcome,
             name: currentRecipe.name,
             price: finalPrice,
         };
 
         updateInventory({ ...inventory, breads: [...inventory.breads, newBread] });
         
+        // Reset for next bake
         setMixingBowl([]);
         setKneadCount(0);
         setCurrentRecipe(null);
+        setFermentationOutcome(null);
+        setFermentProgress(0);
+        setBakeProgress(0);
+        setIsFermenting(false);
         setStep(BakingStep.Finished);
     };
 
     const getBreadColor = () => {
-        if (bakeProgress < perfectBakeStart) {
-            const progress = bakeProgress / perfectBakeStart;
-            const lightness = 100 - progress * 20;
-            return `hsl(40, 100%, ${lightness}%)`;
-        } else if (bakeProgress <= perfectBakeEnd) {
-            return '#d2a679'; // Golden brown
-        } else {
-            const progress = (bakeProgress - perfectBakeEnd) / (totalBakeTime - perfectBakeEnd);
-            const lightness = 60 - progress * 40;
-            return `hsl(25, 50%, ${lightness}%)`; // Darken to burnt
-        }
+        const progress = bakeProgress / SIMPLE_BAKE_DURATION_MS;
+        const lightness = 100 - progress * 40; // from light to golden brown
+        return `hsl(40, 100%, ${lightness}%)`;
     };
 
     const renderBaking = () => {
@@ -377,25 +416,48 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
                         <div className="w-full bg-gray-200 rounded-full h-4 mt-4 overflow-hidden">
                              <div className="bg-green-500 h-4 rounded-full" style={{ width: `${Math.min(100, (kneadCount / kneadTarget) * 100)}%` }}></div>
                         </div>
-                        {kneadCount >= kneadTarget && <p className="mt-4 text-xl font-bold text-green-300 animate-pulse">Ready for the oven!</p>}
+                        {kneadCount >= kneadTarget && <p className="mt-4 text-xl font-bold text-green-300 animate-pulse">Ready for the next step!</p>}
                     </div>
                  );
+            case BakingStep.Ferment:
+                 return (
+                    <div className="text-center">
+                        <h2 className="text-3xl font-bold mb-4">Ferment the Dough</h2>
+                        <p className="mb-4">Stop at the right time for perfect fermentation! (Duration: {totalFermentTime / 1000}s)</p>
+                        <div className="w-64 h-40 bg-gray-800 rounded-lg mx-auto flex items-center justify-center p-4" style={{border: '10px solid #4a5568'}}>
+                             <div className="w-24 h-24 rounded-full bg-amber-200"></div>
+                        </div>
+                        <div className="w-full bg-gray-400 rounded-full h-2.5 mt-4 overflow-hidden">
+                            <div className="bg-purple-500 h-2.5 rounded-full" style={{ width: `${Math.min(100, (fermentProgress / totalFermentTime) * 100)}%` }}></div>
+                            <div className="relative h-0">
+                                <div className="absolute bg-green-500/70 h-4 -bottom-1" style={{ left: `${(perfectFermentStart / totalFermentTime) * 100}%`, width: `${((perfectFermentEnd - perfectFermentStart) / totalFermentTime) * 100}%` }}></div>
+                            </div>
+                        </div>
+                        {fermentationOutcome ? (
+                             <p className={`mt-4 text-2xl font-bold animate-pulse ${fermentationOutcome === BreadQuality.Perfect ? 'text-green-400' : 'text-red-400'}`}>
+                                {fermentationOutcome === BreadQuality.Perfect && 'Perfect Fermentation!'}
+                                {fermentationOutcome === BreadQuality.Undercooked && 'Under-fermented...'}
+                                {fermentationOutcome === BreadQuality.Burnt && 'Over-fermented!'}
+                            </p>
+                        ) : (
+                            <>
+                                {!isFermenting && <button onClick={() => setIsFermenting(true)} className="mt-4 px-8 py-3 bg-red-600 text-white font-bold rounded-full shadow-lg hover:bg-red-700">Start Fermenting</button>}
+                                {isFermenting && <button onClick={() => handleFinishFermenting()} className="mt-4 px-8 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg hover:bg-blue-700">Stop!</button>}
+                            </>
+                        )}
+                    </div>
+                );
              case BakingStep.Bake:
                  return (
                     <div className="text-center">
                         <h2 className="text-3xl font-bold mb-4">Baking the {currentRecipe?.name}!</h2>
-                        <p className="mb-4">Take it out when it's golden brown! (Bake time: {totalBakeTime / 1000}s)</p>
+                        <p className="mb-4 animate-pulse">Please wait, the bread is baking automatically...</p>
                         <div className="w-64 h-40 bg-gray-800 rounded-lg mx-auto flex items-center justify-center p-4" style={{border: '10px solid #4a5568'}}>
                             <div className="w-24 h-24 rounded-full" style={{ backgroundColor: getBreadColor() }}></div>
                         </div>
-                        <div className="w-full bg-gray-400 rounded-full h-2.5 mt-4 overflow-hidden">
-                            <div className="bg-orange-500 h-2.5 rounded-full" style={{ width: `${Math.min(100, (bakeProgress / totalBakeTime) * 100)}%` }}></div>
-                            <div className="relative h-0">
-                                <div className="absolute bg-green-500/70 h-4 -bottom-1" style={{ left: `${(perfectBakeStart / totalBakeTime) * 100}%`, width: `${((perfectBakeEnd - perfectBakeStart) / totalBakeTime) * 100}%` }}></div>
-                            </div>
+                        <div className="w-full bg-gray-400 rounded-full h-4 mt-4 overflow-hidden">
+                            <div className="bg-orange-500 h-4 rounded-full" style={{ width: `${(bakeProgress / SIMPLE_BAKE_DURATION_MS) * 100}%` }}></div>
                         </div>
-                        {!isBaking && <button onClick={() => setIsBaking(true)} className="mt-4 px-8 py-3 bg-red-600 text-white font-bold rounded-full shadow-lg hover:bg-red-700">Start Baking</button>}
-                        {isBaking && <button onClick={() => handleFinishBaking()} className="mt-4 px-8 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg hover:bg-blue-700">Take Out!</button>}
                     </div>
                 );
             case BakingStep.Finished:
