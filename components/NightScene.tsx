@@ -319,9 +319,10 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
                             <h2 className="text-2xl font-bold mb-2">Your Ingredients</h2>
                              <div className="grid grid-cols-3 gap-2 p-2 bg-stone-800/50 rounded-lg max-h-96 overflow-y-auto">
                                  {Object.values(IngredientType).map(ing => (
-                                     <div key={ing} draggable={inventory.ingredients[ing] > 0} onClick={() => handleAddIngredientToBowl(ing)} onDragStart={(e) => handleDragStart(e, ing)} onDragEnd={handleDragEnd} className={`p-3 text-center rounded-md transition-colors ${inventory.ingredients[ing] > 0 ? 'bg-amber-100 cursor-pointer hover:bg-amber-200' : 'bg-stone-500 opacity-50'}`}>
+                                     <div key={ing} draggable={inventory.ingredients[ing] > 0} onClick={() => handleAddIngredientToBowl(ing)} onDragStart={(e) => handleDragStart(e, ing)} onDragEnd={handleDragEnd} className={`p-2 flex flex-col justify-between text-center rounded-md transition-colors h-24 ${inventory.ingredients[ing] > 0 ? 'bg-amber-100 cursor-pointer hover:bg-amber-200' : 'bg-stone-500 opacity-50'}`}>
                                          <span className="text-3xl">{INGREDIENT_EMOJIS[ing]}</span>
-                                         <p className="font-semibold text-sm text-stone-800">x{inventory.ingredients[ing] || 0}</p>
+                                         <p className="font-semibold text-xs capitalize text-stone-800 leading-tight">{ing.replace(/([A-Z])/g, ' $1').trim()}</p>
+                                         <p className="font-bold text-sm text-stone-800">x{inventory.ingredients[ing] || 0}</p>
                                      </div>
                                  ))}
                             </div>
