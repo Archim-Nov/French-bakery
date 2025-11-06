@@ -266,6 +266,13 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
             return newMix;
         });
     };
+    
+    const handleTabChange = (tab: 'bakery' | 'coffee') => {
+        if (activeTab !== tab) {
+            setActivePanel(null); // Close any open panel when switching tabs
+            setActiveTab(tab);
+        }
+    };
 
     const renderCoffeeStation = () => {
         const MIX_INGREDIENTS: IngredientType[] = [
@@ -381,7 +388,7 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
         <div className="absolute top-6 left-6 z-10" title="Switch View">
             <div className="relative flex w-64 items-center rounded-full bg-stone-200/80 p-1 shadow-inner">
                 <div
-                    onClick={() => setActiveTab('bakery')}
+                    onClick={() => handleTabChange('bakery')}
                     className="relative z-10 w-1/2 cursor-pointer rounded-full py-2 text-center"
                 >
                     {currentCustomer && <div className="absolute top-1 right-3 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>}
@@ -390,7 +397,7 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                     </span>
                 </div>
                 <div
-                    onClick={() => setActiveTab('coffee')}
+                    onClick={() => handleTabChange('coffee')}
                     className="relative z-10 w-1/2 cursor-pointer rounded-full py-2 text-center"
                 >
                     {currentCafeCustomer && <div className="absolute top-1 right-3 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>}
