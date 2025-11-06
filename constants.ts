@@ -31,6 +31,11 @@ export const INGREDIENT_PRICES: Record<IngredientType, number> = {
     [IngredientType.Oats]: 5,
     [IngredientType.SunflowerSeeds]: 6,
     [IngredientType.FlaxSeeds]: 6,
+    // Coffee ingredients are free and not purchased
+    [IngredientType.CoffeeBean]: 0,
+    [IngredientType.MilkFoam]: 0,
+    [IngredientType.Syrup]: 0,
+    [IngredientType.ChocolateSauce]: 0,
 };
 
 export const BREAD_SALE_PRICE_MODIFIERS: Record<BreadQuality, number> = {
@@ -77,6 +82,10 @@ export const INGREDIENT_EMOJIS: Record<IngredientType, string> = {
     [IngredientType.Oats]: ' Oats',
     [IngredientType.SunflowerSeeds]: '🌻',
     [IngredientType.FlaxSeeds]: '🟤',
+    [IngredientType.CoffeeBean]: '🫘',
+    [IngredientType.MilkFoam]: '☁️',
+    [IngredientType.Syrup]: '🍮',
+    [IngredientType.ChocolateSauce]: '🍫',
 };
 
 export const GRIND_TARGET = 10;
@@ -84,11 +93,27 @@ export const BREW_TIME_MS = 5000; // 5 seconds
 export const COMFORT_PRICE_BONUS_PER_POINT = 0.1; // 1 gold per 10 comfort points
 
 export const COFFEE_RECIPES: CoffeeRecipe[] = [
-    { name: CoffeeType.Espresso, ingredients: {}, basePrice: 8, icon: '☕' },
-    { name: CoffeeType.CafeAuLait, ingredients: { [IngredientType.Milk]: 1 }, basePrice: 12, icon: '☕' },
-    { name: CoffeeType.Cappuccino, ingredients: { [IngredientType.Milk]: 1 }, basePrice: 13, icon: ' cappuccino' },
-    { name: CoffeeType.Mocha, ingredients: { [IngredientType.Milk]: 1, [IngredientType.Chocolate]: 1 }, basePrice: 15, icon: '🍫' },
-    { name: CoffeeType.LatteMacchiato, ingredients: { [IngredientType.Milk]: 1 }, basePrice: 14, icon: ' latte' },
+    // 1. Bitter
+    { name: CoffeeType.Espresso, ingredients: { [IngredientType.CoffeeBean]: 3 }, basePrice: 4, icon: '☕' },
+    { name: CoffeeType.Ristretto, ingredients: { [IngredientType.CoffeeBean]: 3, [IngredientType.MilkFoam]: 1 }, basePrice: 5, icon: '☕' },
+    { name: CoffeeType.Macchiato, ingredients: { [IngredientType.CoffeeBean]: 2, [IngredientType.MilkFoam]: 1 }, basePrice: 5, icon: '☕' },
+    // 2. Balanced
+    { name: CoffeeType.Cappuccino, ingredients: { [IngredientType.CoffeeBean]: 2, [IngredientType.Milk]: 1, [IngredientType.MilkFoam]: 1 }, basePrice: 7, icon: '☕' },
+    { name: CoffeeType.Latte, ingredients: { [IngredientType.CoffeeBean]: 2, [IngredientType.Milk]: 2 }, basePrice: 6, icon: '☕' },
+    { name: CoffeeType.FlatWhite, ingredients: { [IngredientType.CoffeeBean]: 2, [IngredientType.Milk]: 3 }, basePrice: 7, icon: '☕' },
+    // 3. Milky
+    { name: CoffeeType.MilkCoffee, ingredients: { [IngredientType.CoffeeBean]: 1, [IngredientType.Milk]: 3 }, basePrice: 5, icon: '🥛' },
+    { name: CoffeeType.SweetMilkCoffee, ingredients: { [IngredientType.CoffeeBean]: 1, [IngredientType.Milk]: 2, [IngredientType.Syrup]: 1 }, basePrice: 6, icon: '🥛' },
+    { name: CoffeeType.CreamLatte, ingredients: { [IngredientType.CoffeeBean]: 1, [IngredientType.Milk]: 2, [IngredientType.MilkFoam]: 1 }, basePrice: 6, icon: '🥛' },
+    // 4. Sweet
+    { name: CoffeeType.VanillaLatte, ingredients: { [IngredientType.CoffeeBean]: 2, [IngredientType.Milk]: 2, [IngredientType.Syrup]: 1 }, basePrice: 8, icon: '🍮' },
+    { name: CoffeeType.CaramelLatte, ingredients: { [IngredientType.CoffeeBean]: 2, [IngredientType.Milk]: 1, [IngredientType.Syrup]: 1, [IngredientType.MilkFoam]: 1 }, basePrice: 9, icon: '🍮' },
+    { name: CoffeeType.SweetCreamCoffee, ingredients: { [IngredientType.CoffeeBean]: 1, [IngredientType.Milk]: 1, [IngredientType.MilkFoam]: 1, [IngredientType.Syrup]: 1 }, basePrice: 8, icon: '🍮' },
+    // 5. Special
+    { name: CoffeeType.Mocha, ingredients: { [IngredientType.CoffeeBean]: 2, [IngredientType.Milk]: 1, [IngredientType.ChocolateSauce]: 1 }, basePrice: 8, icon: '🍫' },
+    { name: CoffeeType.MochaLatte, ingredients: { [IngredientType.CoffeeBean]: 2, [IngredientType.Milk]: 1, [IngredientType.MilkFoam]: 1, [IngredientType.ChocolateSauce]: 1 }, basePrice: 9, icon: '🍫' },
+    { name: CoffeeType.ChocolateMacchiato, ingredients: { [IngredientType.CoffeeBean]: 2, [IngredientType.MilkFoam]: 1, [IngredientType.ChocolateSauce]: 1 }, basePrice: 8, icon: '🍫' },
+    { name: CoffeeType.DoubleChocolate, ingredients: { [IngredientType.CoffeeBean]: 1, [IngredientType.Milk]: 1, [IngredientType.Syrup]: 1, [IngredientType.ChocolateSauce]: 1 }, basePrice: 9, icon: '🍫' },
 ];
 
 

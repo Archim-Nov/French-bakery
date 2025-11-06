@@ -12,6 +12,14 @@ const dialogueSchema = {
   required: ['dialogue', 'coffeeDialogue'],
 };
 
+const cafeDialogueSchema = {
+  type: Type.OBJECT,
+  properties: {
+    dialogue: { type: Type.STRING, description: 'What they say when ordering a specific coffee, reflecting their mood.' },
+  },
+  required: ['dialogue'],
+};
+
 export const generateDailyDialogue = async (personality: string, name: string, mood: Mood, desiredBread: string): Promise<{dialogue: string, coffeeDialogue: string}> => {
     try {
         const prompt = `You are a character named ${name} in a bakery game. Your personality is: "${personality}". 
@@ -45,6 +53,37 @@ export const generateDailyDialogue = async (personality: string, name: string, m
             dialogue: `Just a ${desiredBread} for me, please.`,
             coffeeDialogue: "I suppose I have time for a coffee.",
         };
+    }
+};
+
+export const generateCafeDialogue = async (personality: string, name: string, mood: Mood, desiredCoffee: string): Promise<string> => {
+    try {
+        const prompt = `You are a character named ${name} in a bakery game. Your personality is: "${personality}". 
+        Today, your mood is ${mood}. 
+        Generate one short, in-character line of dialogue for when you enter the cafe to order a ${desiredCoffee}.
+        Return the response strictly as a JSON object matching the provided schema. Do not include any markdown formatting.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: cafeDialogueSchema,
+            },
+        });
+
+        const dialogueData = JSON.parse(response.text);
+        
+        if (dialogueData.dialogue) {
+            return dialogueData.dialogue;
+        } else {
+            throw new Error("Generated data is missing required fields.");
+        }
+
+    } catch (error) {
+        console.error(`Error generating cafe dialogue for ${name}:`, error);
+        // Fallback dialogue
+        return `I'd like a ${desiredCoffee}, please.`;
     }
 };
 

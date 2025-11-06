@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-// FIX: Moved CoffeeType from 'import type' to regular import because it's used as a value (enum).
-import type { Bread, Customer, DragItem, Ingredients, GameDate } from '../types';
+import type { Bread, Customer, DragItem, Ingredients, GameDate, CoffeeRecipe } from '../types';
 import { CoffeeStep, IngredientType, CoffeeType } from '../types';
-import ContactList from './ContactList';
 import { GRIND_TARGET, BREW_TIME_MS, COFFEE_RECIPES, INGREDIENT_EMOJIS } from '../constants';
 import ChatModal from './ChatModal';
 
@@ -20,9 +18,12 @@ interface DaySceneProps {
     isReplying: boolean;
     gameDate: GameDate;
     dayChatCustomer: Customer | null;
+    currentCafeCustomer: Customer | null;
+    isGeneratingCafeCustomer: boolean;
     updateGold: (amount: number) => void;
     onSellPackedBreads: (breadIds: string[]) => void;
     onServeCoffee: (customerId: string, coffeeType: CoffeeType) => void;
+    onSellCoffeeToWaitingCustomer: (coffeeType: CoffeeType) => void;
     onEndDay: () => void;
     onSendMessage: (message: string) => void;
     onStartDayChat: (customerId: string) => void;
@@ -40,27 +41,23 @@ const formatDate = (date: GameDate): string => {
 };
 
 const DayScene: React.FC<DaySceneProps> = (props) => {
-    const { gold, breads, townsfolk, inventoryIngredients, currentCustomer, seatedCustomers, maxSeats, cafeComfort, purchasedDecorations, isGeneratingCustomer, isReplying, gameDate, dayChatCustomer, updateGold, onSellPackedBreads, onServeCoffee, onEndDay, onSendMessage, onStartDayChat, onEndDayChat, onDayChatSendMessage } = props;
+    const { gold, breads, townsfolk, inventoryIngredients, currentCustomer, seatedCustomers, maxSeats, cafeComfort, purchasedDecorations, isGeneratingCustomer, isReplying, gameDate, dayChatCustomer, currentCafeCustomer, isGeneratingCafeCustomer, updateGold, onSellPackedBreads, onServeCoffee, onSellCoffeeToWaitingCustomer, onEndDay, onSendMessage, onStartDayChat, onEndDayChat, onDayChatSendMessage } = props;
     const [chatInput, setChatInput] = useState('');
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     
-    // UI State
     const [activePanel, setActivePanel] = useState<'bread' | 'coffee' | null>(null);
     const [activeTab, setActiveTab] = useState<'bakery' | 'coffee'>('bakery');
 
-    // Coffee State
     const [coffeeStep, setCoffeeStep] = useState<CoffeeStep>(CoffeeStep.Idle);
     const [grindCount, setGrindCount] = useState(0);
     const [brewProgress, setBrewProgress] = useState(0);
     const [isBrewing, setIsBrewing] = useState(false);
-    const [coffeeMix, setCoffeeMix] = useState<IngredientType[]>([]);
+    const [coffeeMix, setCoffeeMix] = useState<Partial<Record<IngredientType, number>>>({});
     const [currentCoffeeRecipe, setCurrentCoffeeRecipe] = useState<CoffeeType | null>(null);
 
-    // Bread Packing State
     const [breadsToPack, setBreadsToPack] = useState<Bread[]>([]);
     const [isPacked, setIsPacked] = useState(false);
     
-    // Filter available breads from those in the packing area
     const availableBreads = breads.filter(b => !breadsToPack.some(p => p.id === b.id));
 
     const groupedAvailableBreads = availableBreads.reduce<Record<string, { bread: Bread; count: number; ids: string[] }>>((acc, bread) => {
@@ -91,7 +88,7 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
         setGrindCount(0);
         setBrewProgress(0);
         setIsBrewing(false);
-        setCoffeeMix([]);
+        setCoffeeMix({});
         setCurrentCoffeeRecipe(null);
     };
 
@@ -165,6 +162,19 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
         e.currentTarget.classList.remove('border-green-500', 'scale-105');
     };
 
+    const handleWaitingCustomerDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        const data = e.dataTransfer.getData('application/json');
+        if (!data || !currentCafeCustomer) return;
+        const item: DragItem = JSON.parse(data);
+
+        if (item.type === 'coffee') {
+            onSellCoffeeToWaitingCustomer(item.id as CoffeeType);
+            resetCoffeeStation();
+        }
+        e.currentTarget.classList.remove('border-green-500', 'scale-105');
+    };
+
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.currentTarget.classList.add('border-green-500', 'scale-105');
@@ -182,36 +192,37 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
         }
     };
 
-    const findCoffeeRecipe = (mix: IngredientType[]): CoffeeType | null => {
-        const mixCounts: Partial<Record<IngredientType, number>> = {};
-        for (const ing of mix) {
-            mixCounts[ing] = (mixCounts[ing] || 0) + 1;
-        }
-        if (Object.keys(mixCounts).length === 0) return CoffeeType.Espresso;
+    const findCoffeeRecipe = (mix: Partial<Record<IngredientType, number>>): CoffeeRecipe | null => {
         for (const recipe of COFFEE_RECIPES) {
-             const recipeIngredients = Object.keys(recipe.ingredients);
-             const mixIngredients = Object.keys(mixCounts);
-             if (recipeIngredients.length !== mixIngredients.length) continue;
-             let isMatch = true;
-             for (const ing of recipeIngredients) {
-                 if (recipe.ingredients[ing as IngredientType] !== mixCounts[ing as IngredientType]) {
-                     isMatch = false;
-                     break;
-                 }
-             }
-             if (isMatch) return recipe.name;
+            const recipeIngredients = Object.keys(recipe.ingredients);
+            const mixIngredients = Object.keys(mix);
+
+            if (recipeIngredients.length !== mixIngredients.length) {
+                continue;
+            }
+
+            let isMatch = true;
+            for (const ing of recipeIngredients) {
+                if (recipe.ingredients[ing as IngredientType] !== mix[ing as IngredientType]) {
+                    isMatch = false;
+                    break;
+                }
+            }
+            if (isMatch) {
+                return recipe;
+            }
         }
         return null;
     }
     
     const handleStartBrewing = () => {
-        const recipeType = findCoffeeRecipe(coffeeMix);
-        if (recipeType) {
-            setCurrentCoffeeRecipe(recipeType);
+        const matchedRecipe = findCoffeeRecipe(coffeeMix);
+        if (matchedRecipe) {
+            setCurrentCoffeeRecipe(matchedRecipe.name);
             setIsBrewing(true);
             setCoffeeStep(CoffeeStep.Brew);
         } else {
-            alert("This doesn't look like a valid coffee recipe.");
+            alert("This doesn't seem to make a recognized coffee. Try a different combination!");
         }
     }
 
@@ -230,25 +241,150 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
         if (isPacked) return;
         setBreadsToPack(prev => prev.filter(b => b.id !== breadId));
     };
+    
+    const handleUpdateCoffeeMix = (ingredient: IngredientType, change: 1 | -1) => {
+        const totalIngredients = Object.values(coffeeMix).reduce((sum, count = 0) => sum + count, 0);
+
+        if (change === 1 && totalIngredients >= 5) {
+            return;
+        }
+
+        const currentAmountInMix = coffeeMix[ingredient] || 0;
+        const newAmount = currentAmountInMix + change;
+
+        if (newAmount < 0) {
+            return;
+        }
+
+        setCoffeeMix(prev => {
+            const newMix = { ...prev };
+            if (newAmount > 0) {
+                newMix[ingredient] = newAmount;
+            } else {
+                delete newMix[ingredient];
+            }
+            return newMix;
+        });
+    };
 
     const renderCoffeeStation = () => {
+        const MIX_INGREDIENTS: IngredientType[] = [
+            IngredientType.CoffeeBean,
+            IngredientType.Milk,
+            IngredientType.MilkFoam,
+            IngredientType.Syrup,
+            IngredientType.ChocolateSauce,
+        ];
+        
         switch (coffeeStep) {
             case CoffeeStep.Idle: return <div className="text-center p-4"><button onClick={() => setCoffeeStep(CoffeeStep.Grind)} className="px-6 py-3 bg-stone-600 text-white font-bold rounded-lg shadow-lg hover:bg-stone-700 transition-colors w-full"><span className="text-2xl mr-2">🫘</span> Grind Beans</button></div>;
             case CoffeeStep.Grind: return <div className="text-center p-4"><h3 className="font-bold mb-2">Grind the Beans!</h3><p className="text-sm mb-2">Click the grinder!</p><div onClick={handleGrind} className="w-24 h-24 bg-stone-300 rounded-full mx-auto flex items-center justify-center cursor-pointer active:scale-95 transition-transform text-5xl">⚙️</div><div className="w-full bg-gray-200 rounded-full h-2.5 mt-4 overflow-hidden"><div className="bg-stone-500 h-2.5 rounded-full" style={{ width: `${Math.min(100, (grindCount / GRIND_TARGET) * 100)}%` }}></div></div>{grindCount >= GRIND_TARGET && <p className="mt-2 text-sm font-bold text-green-600 animate-pulse">Ready to mix!</p>}</div>;
-            case CoffeeStep.Mix: return <div className="p-4"><h3 className="font-bold text-center mb-2">Mix your Coffee</h3><div className="min-h-[60px] bg-stone-200 rounded-lg p-2 mb-2 flex items-center justify-center gap-2 text-3xl"><span title="Ground Coffee">🫘</span>{coffeeMix.map((ing, i) => <span key={i} title={ing}>{INGREDIENT_EMOJIS[ing]}</span>)}</div><div className="grid grid-cols-2 gap-2 mb-4">{([IngredientType.Milk, IngredientType.Chocolate] as const).map(ing => (<button key={ing} onClick={() => setCoffeeMix(prev => [...prev, ing])} disabled={(inventoryIngredients[ing] || 0) <= coffeeMix.filter(i => i === ing).length} className="p-2 bg-amber-100 rounded-lg flex items-center justify-center gap-2 text-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-200">{INGREDIENT_EMOJIS[ing]} <span>x{(inventoryIngredients[ing] || 0) - coffeeMix.filter(i => i === ing).length}</span></button>))}</div><button onClick={handleStartBrewing} className="w-full px-6 py-2 bg-blue-600 text-white font-bold rounded-lg shadow-lg hover:bg-blue-700">Brew!</button></div>;
+            case CoffeeStep.Mix:
+                 const totalIngredients = Object.values(coffeeMix).reduce((sum, count = 0) => sum + count, 0);
+                 const matchedRecipe = findCoffeeRecipe(coffeeMix);
+
+                 const mixSlots: IngredientType[] = [];
+                 for (const [ing, count] of Object.entries(coffeeMix)) {
+                     for (let i = 0; i < (count || 0); i++) {
+                         mixSlots.push(ing as IngredientType);
+                     }
+                 }
+
+                 return (
+                     <div className="p-4 flex flex-col h-full">
+                         <h3 className="font-bold text-center mb-2 text-xl">Mix Your Coffee</h3>
+                         <div className="flex-grow flex items-center justify-center gap-8">
+                             <div className="flex flex-col items-center gap-6">
+                                 <div className="flex gap-2 p-2 bg-stone-200/80 rounded-lg h-24 items-center justify-center border-2 border-dashed border-stone-400 min-w-[320px]">
+                                     {Array.from({ length: 5 }).map((_, i) => {
+                                         const ingredient = mixSlots[i];
+                                         if (ingredient) {
+                                             return (
+                                                 <div key={i} className="w-12 h-16 bg-white rounded-md flex items-center justify-center text-4xl shadow-inner">
+                                                     {INGREDIENT_EMOJIS[ingredient]}
+                                                 </div>
+                                             );
+                                         }
+                                         return (
+                                             <div key={i} className="w-12 h-16 bg-stone-300/50 rounded-md"></div>
+                                         );
+                                     })}
+                                 </div>
+                                 <div className="flex justify-center gap-3">
+                                     {MIX_INGREDIENTS.map(ing => (
+                                         <div key={ing} className="text-center">
+                                             <span className="text-4xl">{INGREDIENT_EMOJIS[ing]}</span>
+                                             <div className="flex gap-1 mt-1">
+                                                 <button
+                                                     onClick={() => handleUpdateCoffeeMix(ing, -1)}
+                                                     disabled={(coffeeMix[ing] || 0) === 0}
+                                                     className="w-8 h-8 rounded-full bg-red-500 text-white font-bold text-xl disabled:bg-gray-400 flex items-center justify-center"
+                                                 >-</button>
+                                                 <button
+                                                     onClick={() => handleUpdateCoffeeMix(ing, 1)}
+                                                     disabled={totalIngredients >= 5}
+                                                     className="w-8 h-8 rounded-full bg-green-500 text-white font-bold text-xl disabled:bg-gray-400 flex items-center justify-center"
+                                                 >+</button>
+                                             </div>
+                                         </div>
+                                     ))}
+                                 </div>
+                             </div>
+                             <div className="w-48 text-center flex flex-col items-center justify-center p-4 bg-stone-200/80 rounded-lg h-48 border-2 border-dashed border-stone-400">
+                                 {matchedRecipe ? (
+                                     <div className="flex flex-col items-center animate-fade-in-up">
+                                         <span className="text-6xl">{matchedRecipe.icon}</span>
+                                         <p className="font-bold text-stone-800 mt-2 text-lg">{matchedRecipe.name}</p>
+                                     </div>
+                                 ) : (
+                                     <div className="flex flex-col items-center text-stone-500">
+                                         <span className="text-6xl">🧪</span>
+                                         <p className="font-bold mt-2">Custom Mix</p>
+                                     </div>
+                                 )}
+                             </div>
+                         </div>
+                         <div className="flex gap-2 mt-4">
+                             <button onClick={() => setCoffeeMix({})} className="w-1/3 px-4 py-2 bg-red-200 text-red-800 font-bold rounded-lg shadow-sm hover:bg-red-300">
+                                 Clear
+                             </button>
+                             <button onClick={handleStartBrewing} disabled={!matchedRecipe} className="w-2/3 px-6 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-lg hover:bg-blue-700 disabled:bg-gray-400">
+                                 Brew!
+                             </button>
+                         </div>
+                     </div>
+                 );
             case CoffeeStep.Brew: const recipeBeingBrewed = COFFEE_RECIPES.find(r => r.name === currentCoffeeRecipe); return <div className="text-center p-4"><h3 className="font-bold mb-2">Brewing {currentCoffeeRecipe}</h3><div className="w-24 h-24 bg-stone-300 rounded-full mx-auto flex items-center justify-center text-5xl mb-4">{recipeBeingBrewed?.icon}</div><div className="w-full bg-gray-200 rounded-full h-2.5 mt-4"><div className="bg-amber-800 h-2.5 rounded-full" style={{ width: `${(brewProgress / BREW_TIME_MS) * 100}%` }}></div></div></div>;
-            case CoffeeStep.Ready: const readyRecipe = COFFEE_RECIPES.find(r => r.name === currentCoffeeRecipe); if (!readyRecipe) return null; return <div draggable onDragStart={(e) => handleCoffeeDragStart(e, readyRecipe.name)} onDragEnd={handleDragEnd} className="p-4 bg-amber-50 rounded-lg text-center shadow-md cursor-grab active:cursor-grabbing transform hover:scale-105 transition-transform"><span className="text-5xl">{readyRecipe.icon}</span><p className="font-bold">{readyRecipe.name}</p></div>;
+            case CoffeeStep.Ready:
+                const readyRecipe = COFFEE_RECIPES.find(r => r.name === currentCoffeeRecipe);
+                if (!readyRecipe) return null;
+                return (
+                    <div className="text-center p-4 flex flex-col items-center justify-center h-full">
+                        <p className="font-bold mb-4">Your {readyRecipe.name} is ready!</p>
+                        <div draggable onDragStart={(e) => handleCoffeeDragStart(e, readyRecipe.name)} onDragEnd={handleDragEnd} className="p-4 bg-amber-50 rounded-lg text-center shadow-md cursor-grab active:cursor-grabbing transform hover:scale-105 transition-transform mb-4">
+                            <span className="text-5xl">{readyRecipe.icon}</span>
+                            <p className="font-bold">{readyRecipe.name}</p>
+                        </div>
+                        <p className="text-sm text-stone-600 mb-4">Drag it to a customer to serve.</p>
+                        <button
+                            onClick={resetCoffeeStation}
+                            className="px-6 py-2 bg-red-500 text-white font-bold rounded-lg shadow-lg hover:bg-red-600 transition-colors"
+                        >
+                            Discard & Start Over
+                        </button>
+                    </div>
+                );
         }
     };
     
     const ViewSwitcher = () => (
         <div className="absolute top-6 left-6 z-10" title="Switch View">
             <div className="relative flex w-64 items-center rounded-full bg-stone-200/80 p-1 shadow-inner">
-                {/* Clickable Areas */}
                 <div
                     onClick={() => setActiveTab('bakery')}
                     className="relative z-10 w-1/2 cursor-pointer rounded-full py-2 text-center"
                 >
+                    {currentCustomer && <div className="absolute top-1 right-3 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>}
                     <span className={`font-bold transition-colors duration-500 ${activeTab === 'bakery' ? 'text-amber-900' : 'text-stone-500'}`}>
                         🥖 Bakery
                     </span>
@@ -257,12 +393,12 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                     onClick={() => setActiveTab('coffee')}
                     className="relative z-10 w-1/2 cursor-pointer rounded-full py-2 text-center"
                 >
+                    {currentCafeCustomer && <div className="absolute top-1 right-3 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>}
                      <span className={`font-bold transition-colors duration-500 ${activeTab === 'coffee' ? 'text-amber-900' : 'text-stone-500'}`}>
                         ☕ Cafe
                     </span>
                 </div>
     
-                {/* Sliding Indicator */}
                 <div
                     className={`absolute left-1 top-1 h-[calc(100%-0.5rem)] w-1/2 rounded-full bg-white shadow-md transition-transform duration-500 ease-in-out
                     ${activeTab === 'bakery' ? 'translate-x-0' : 'translate-x-full'}`}
@@ -295,7 +431,6 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                                     className="flex h-full w-[200%] transition-transform duration-500 ease-in-out"
                                     style={{ transform: activeTab === 'bakery' ? 'translateX(0%)' : 'translateX(-50%)' }}
                                 >
-                                    {/* Bakery Panel */}
                                     <div className="w-1/2 h-full">
                                         <div className="bg-white/70 p-6 flex flex-col h-full overflow-y-auto">
                                             <div className="pt-24 flex-grow flex flex-col">
@@ -328,14 +463,36 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                                         </div>
                                     </div>
 
-                                    {/* Coffee Panel */}
                                     <div className="w-1/2 h-full">
                                         <div className="bg-amber-200/60 p-6 flex flex-col items-center justify-center relative bg-cover bg-center h-full overflow-y-auto" style={{backgroundImage: 'url("https://www.transparenttextures.com/patterns/wood-pattern.png")'}}>
                                             <div className="absolute top-4 right-4 text-2xl">{purchasedDecorations.includes('umbrella_1') && '⛱️'} {purchasedDecorations.includes('decor_1') && '✨'}</div><div className="absolute bottom-4 right-4 text-xl font-bold bg-white/70 px-3 py-1 rounded-full shadow-md">💖 Comfort: {cafeComfort}</div><div className="absolute bottom-4 left-4 text-5xl">{purchasedDecorations.includes('plant_1') && '🪴'}</div>
-                                            <div className="flex flex-wrap gap-8 justify-center items-end pt-24">
+                                            
+                                            {isGeneratingCafeCustomer && <div className="text-center p-8"><p className="text-2xl animate-pulse">A coffee lover is on their way...</p></div>}
+                                            {!isGeneratingCafeCustomer && currentCafeCustomer && (
+                                                <div 
+                                                    onDrop={handleWaitingCustomerDrop} 
+                                                    onDragOver={handleDragOver} 
+                                                    onDragLeave={handleDragLeave} 
+                                                    className="text-center p-4 border-4 border-dashed border-transparent rounded-lg transition-all duration-300 mb-8"
+                                                >
+                                                    <div style={{ backgroundImage: `url(${currentCafeCustomer.avatarUrl})` }} className="w-32 h-32 rounded-full mx-auto mb-4 border-4 border-amber-700 shadow-xl bg-cover bg-top"></div>
+                                                    <h3 className="text-2xl font-bold">{currentCafeCustomer.name}</h3>
+                                                    {currentCafeCustomer.desiredCoffee && (
+                                                        <div className="mt-2 mb-2 bg-white border-2 border-amber-400 rounded-full px-4 py-2 shadow-sm text-center">
+                                                            <p className="font-bold text-amber-900">"I'm craving a <span className="text-blue-600">☕ {currentCafeCustomer.desiredCoffee}</span>!"</p>
+                                                        </div>
+                                                    )}
+                                                    <div className="relative mt-2 bg-white/80 p-3 rounded-lg shadow-md max-w-xs mx-auto">
+                                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-white/80"></div>
+                                                        <p className="text-md italic">"{currentCafeCustomer.dialogue}"</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="flex flex-wrap gap-8 justify-center items-end pt-4">
                                                 {Array.from({ length: maxSeats }).map((_, i) => { const customer = seatedCustomers[i]; if (customer) { return (<div key={customer.id} onDrop={(e) => handleCafeDrop(e, customer.id)} onDragOver={handleDragOver} onDragLeave={handleDragLeave} className="text-center p-4 border-4 border-dashed border-transparent rounded-lg transition-all duration-300"><div style={{ backgroundImage: `url(${customer.avatarUrl})` }} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-amber-700 shadow-xl bg-cover bg-top cursor-pointer hover:scale-110 transition-transform" onClick={() => onStartDayChat(customer.id)}></div><h3 className="text-xl font-bold">{customer.name}</h3><div className="relative mt-2 bg-white/80 p-3 rounded-lg shadow-md max-w-xs mx-auto"><div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-white/80"></div><p className="text-md italic">"{customer.coffeeDialogue}"</p></div></div>); } return (<div key={`seat-${i}`} className="text-center p-4"><div className="w-24 h-24 rounded-full mx-auto mb-4 bg-black/10 flex items-center justify-center text-4xl text-stone-600">🪑</div><p className="font-bold text-stone-700">Empty Seat</p></div>); })}
                                             </div>
-                                            {seatedCustomers.length === 0 && maxSeats === 0 && <p className="text-xl text-stone-700 pt-16">Buy some seats to have customers stay!</p>}
+                                            {seatedCustomers.length === 0 && maxSeats === 0 && !currentCafeCustomer && !isGeneratingCafeCustomer && <p className="text-xl text-stone-700 pt-16">Buy some seats to have customers stay!</p>}
                                         </div>
                                     </div>
                                 </div>
@@ -421,17 +578,18 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                 aria-hidden={activePanel !== 'coffee'}
             >
                 <header className="p-2 sm:p-4 bg-stone-900/50 flex items-center justify-between shrink-0">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white">Coffee Station</h2>
+                    <div className="flex items-center gap-4">
+                        <h2 className="text-xl sm:text-2xl font-bold text-white">Coffee Station</h2>
+                    </div>
                     <button onClick={() => setActivePanel(null)} className="text-2xl sm:text-3xl text-white font-bold hover:text-red-400 transition-colors" aria-label="Close panel">&times;</button>
                 </header>
                 <div className="flex-grow overflow-y-auto p-4 sm:p-6 flex items-center justify-center">
-                    <div className="w-full max-w-md bg-white/50 rounded-lg p-4 shadow-inner">
+                    <div className="w-full max-w-4xl bg-white/50 rounded-lg p-4 shadow-inner h-full">
                         {renderCoffeeStation()}
                     </div>
                 </div>
             </aside>
 
-            <ContactList townsfolk={townsfolk} />
             {dayChatCustomer && (
                 <ChatModal customer={dayChatCustomer} isReplying={isReplying} onClose={onEndDayChat} onSendMessage={onDayChatSendMessage} />
             )}

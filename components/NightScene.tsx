@@ -1,29 +1,17 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import type { Ingredients, Bread, DragItem, Recipe, Decoration, Customer, GameDate } from '../types';
+import React, { useState, useEffect } from 'react';
+import type { Ingredients, Bread, DragItem, Recipe, GameDate } from '../types';
 import { IngredientType, BakingStep, BreadQuality } from '../types';
-import { INGREDIENT_PRICES, KNEAD_TARGET, BAKE_TIME_MS, BAKE_PERFECT_WINDOW_START, BAKE_PERFECT_WINDOW_END, BREAD_SALE_PRICE_MODIFIERS, INGREDIENT_EMOJIS, DECORATIONS, SIMPLE_BAKE_DURATION_MS } from '../constants';
+import { INGREDIENT_PRICES, KNEAD_TARGET, BAKE_TIME_MS, BAKE_PERFECT_WINDOW_START, BAKE_PERFECT_WINDOW_END, BREAD_SALE_PRICE_MODIFIERS, INGREDIENT_EMOJIS, SIMPLE_BAKE_DURATION_MS } from '../constants';
 import { BREAD_RECIPES } from '../recipes';
-import RecipeBook from './RecipeBook';
-import ChatModal from './ChatModal';
 
 interface NightSceneProps {
     gold: number;
     inventory: { ingredients: Ingredients; breads: Bread[] };
-    townsfolk: Customer[];
-    purchasedDecorations: string[];
-    nightChatCustomer: Customer | null;
-    isReplying: boolean;
     gameDate: GameDate;
     updateGold: (amount: number) => void;
     updateInventory: (newInventory: { ingredients: Ingredients; breads: Bread[] }) => void;
     onEndNight: () => void;
-    onBuyDecoration: (decoration: Decoration) => void;
-    onStartNightChat: (customer: Customer) => void;
-    onEndNightChat: () => void;
-    onSendMessage: (message: string) => void;
 }
-
-type NightTab = 'baking' | 'decorating' | 'contacts';
 
 const getWeekday = (day: number): string => {
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -34,24 +22,25 @@ const formatDate = (date: GameDate): string => {
     return `Year ${date.year}, ${date.season} ${date.day} (${getWeekday(date.day)})`;
 };
 
+const BAKING_INGREDIENTS = Object.values(IngredientType).filter(
+    ing => !(ing.includes('Coffee') || ing.includes('MilkFoam') || ing.includes('Syrup') || ing.includes('ChocolateSauce'))
+);
+
+
 const NightScene: React.FC<NightSceneProps> = (props) => {
-    const { gold, inventory, townsfolk, purchasedDecorations, nightChatCustomer, isReplying, gameDate, updateGold, updateInventory, onEndNight, onBuyDecoration, onStartNightChat, onEndNightChat, onSendMessage } = props;
+    const { gold, inventory, gameDate, updateGold, updateInventory, onEndNight } = props;
     const [step, setStep] = useState<BakingStep>(BakingStep.Buy);
     const [mixingBowl, setMixingBowl] = useState<IngredientType[]>([]);
     const [kneadCount, setKneadCount] = useState(0);
     const [bakeProgress, setBakeProgress] = useState(0);
     const [isBaking, setIsBaking] = useState(false);
     const [currentRecipe, setCurrentRecipe] = useState<Recipe | null>(null);
-    const [isRecipeBookOpen, setIsRecipeBookOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<NightTab>('baking');
     const [recipeHint, setRecipeHint] = useState<string | null>(null);
 
-    // Fermentation mini-game state (new)
     const [fermentProgress, setFermentProgress] = useState(0);
     const [isFermenting, setIsFermenting] = useState(false);
     const [fermentationOutcome, setFermentationOutcome] = useState<BreadQuality | null>(null);
 
-    // Dynamic baking parameters based on recipe (now for fermentation)
     const kneadTarget = currentRecipe?.kneadTarget || KNEAD_TARGET;
     const totalFermentTime = currentRecipe?.bakeTimeMs || BAKE_TIME_MS;
     const perfectFermentStart = totalFermentTime * BAKE_PERFECT_WINDOW_START;
@@ -59,8 +48,8 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
 
 
     const handleBuyIngredient = (ingredient: IngredientType) => {
-        const price = INGREDIENT_PRICES[ingredient];
-        if (gold >= price) {
+        const price = INGREDIENT_PRICES[ingredient as keyof typeof INGREDIENT_PRICES];
+        if (price !== undefined && gold >= price) {
             updateGold(-price);
             const newIngredients = { ...inventory.ingredients };
             newIngredients[ingredient] = (newIngredients[ingredient] || 0) + 1;
@@ -93,12 +82,10 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
         const ingredientToRemove = mixingBowl[indexToRemove];
         if (!ingredientToRemove) return;
     
-        // Remove from bowl
         const newMixingBowl = [...mixingBowl];
         newMixingBowl.splice(indexToRemove, 1);
         setMixingBowl(newMixingBowl);
     
-        // Return to inventory
         const newIngredients = { ...inventory.ingredients };
         newIngredients[ingredientToRemove] = (newIngredients[ingredientToRemove] || 0) + 1;
         updateInventory({ ...inventory, ingredients: newIngredients });
@@ -211,7 +198,6 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
             setStep(BakingStep.Knead);
         } else {
             alert("These ingredients don't seem to make a recognized bread. Try a different combination!");
-            // Return ingredients
             const newIngredients = { ...inventory.ingredients };
             mixingBowl.forEach(ing => newIngredients[ing] = (newIngredients[ing] || 0) + 1);
             updateInventory({ ...inventory, ingredients: newIngredients });
@@ -237,14 +223,13 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
         }
     }, [kneadCount, kneadTarget]);
     
-    // Fermentation timer
     useEffect(() => {
         let interval: number;
         if (isFermenting) {
             interval = window.setInterval(() => {
                 setFermentProgress(prev => {
                     const newProgress = prev + 100;
-                    if (newProgress >= totalFermentTime + 500) { // Auto-finish as burnt
+                    if (newProgress >= totalFermentTime + 500) {
                         handleFinishFermenting(newProgress);
                         return prev;
                     }
@@ -274,7 +259,6 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
         }, 1500);
     };
 
-    // Simple, non-interactive baking timer
     useEffect(() => {
         let interval: number;
         if (step === BakingStep.Bake && !isBaking) {
@@ -311,10 +295,8 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
             price: finalPrice,
         }));
 
-
         updateInventory({ ...inventory, breads: [...inventory.breads, ...newBreads] });
         
-        // Reset for next bake
         setMixingBowl([]);
         setKneadCount(0);
         setCurrentRecipe(null);
@@ -327,27 +309,31 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
 
     const getBreadColor = () => {
         const progress = bakeProgress / SIMPLE_BAKE_DURATION_MS;
-        const lightness = 100 - progress * 40; // from light to golden brown
+        const lightness = 100 - progress * 40;
         return `hsl(40, 100%, ${lightness}%)`;
     };
 
-    const renderBaking = () => {
+    const renderBakingContent = () => {
         switch (step) {
             case BakingStep.Buy:
                 return (
                     <div className="text-center">
                         <h2 className="text-3xl font-bold mb-4 text-stone-300">Ingredient Shop</h2>
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
-                            {Object.values(IngredientType).map(ing => (
-                                <button key={ing} onClick={() => handleBuyIngredient(ing)} className="p-4 bg-amber-200 rounded-lg shadow-md hover:bg-amber-300 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-stone-800 flex flex-col items-center justify-center relative" disabled={gold < INGREDIENT_PRICES[ing]}>
+                            {BAKING_INGREDIENTS.map(ing => {
+                                const price = INGREDIENT_PRICES[ing as keyof typeof INGREDIENT_PRICES];
+                                if (price === undefined) return null;
+                                return (
+                                <button key={ing} onClick={() => handleBuyIngredient(ing)} className="p-4 bg-amber-200 rounded-lg shadow-md hover:bg-amber-300 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-stone-800 flex flex-col items-center justify-center relative" disabled={gold < price}>
                                     <span className="absolute -top-2 -right-2 bg-amber-800 text-white text-xs font-bold rounded-full px-2 py-1 shadow-md">
                                         {inventory.ingredients[ing] || 0}
                                     </span>
                                     <span className="text-4xl">{INGREDIENT_EMOJIS[ing]}</span>
                                     <p className="font-bold capitalize text-sm">{ing.replace(/([A-Z])/g, ' $1').trim()}</p>
-                                    <p className="text-xs">🪙 {INGREDIENT_PRICES[ing]}</p>
+                                    <p className="text-xs">🪙 {price}</p>
                                 </button>
-                            ))}
+                            )}
+                            )}
                         </div>
                         <button onClick={() => setStep(BakingStep.Mix)} className="mt-8 px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-lg hover:bg-green-700 transition-colors">Go to Mixing Station</button>
                     </div>
@@ -358,7 +344,7 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
                         <div className="w-full md:w-1/3">
                             <h2 className="text-2xl font-bold mb-2">Your Ingredients</h2>
                              <div className="grid grid-cols-3 gap-2 p-2 bg-stone-800/50 rounded-lg max-h-96 overflow-y-auto">
-                                 {Object.values(IngredientType).map(ing => (
+                                 {BAKING_INGREDIENTS.map(ing => (
                                      <div key={ing} draggable={inventory.ingredients[ing] > 0} onClick={() => handleAddIngredientToBowl(ing)} onDragStart={(e) => handleDragStart(e, ing)} onDragEnd={handleDragEnd} className={`p-2 flex flex-col justify-between text-center rounded-md transition-colors h-24 ${inventory.ingredients[ing] > 0 ? 'bg-amber-100 cursor-pointer hover:bg-amber-200' : 'bg-stone-500 opacity-50'}`}>
                                          <span className="text-3xl">{INGREDIENT_EMOJIS[ing]}</span>
                                          <p className="font-semibold text-xs capitalize text-stone-800 leading-tight">{ing.replace(/([A-Z])/g, ' $1').trim()}</p>
@@ -471,80 +457,7 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
                 );
         }
     };
-
-    const renderDecorating = () => {
-        const purchasedCounts = purchasedDecorations.reduce((acc, id) => {
-            acc[id] = (acc[id] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-
-        return (
-            <div>
-                <h2 className="text-3xl font-bold mb-4 text-center text-stone-300">Decoration Shop</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {DECORATIONS.map(item => {
-                        const count = purchasedCounts[item.id] || 0;
-                        const isSoldOut = count >= item.limit;
-                        const canAfford = gold >= item.price;
-                        return (
-                            <div key={item.id} className={`p-4 rounded-lg shadow-lg flex flex-col justify-between ${isSoldOut ? 'bg-green-900/80' : 'bg-stone-800/80'}`}>
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-5xl">{item.icon}</span>
-                                            <h3 className="text-2xl font-bold">{item.name}</h3>
-                                        </div>
-                                        <span className="text-lg font-bold bg-black/30 px-3 py-1 rounded-full">{count}/{item.limit}</span>
-                                    </div>
-                                    <p className="text-stone-300 mb-1">{item.description}</p>
-                                    <p className="text-amber-300 font-bold">💖 +{item.comfortValue} Comfort</p>
-                                </div>
-                                <div className="mt-4">
-                                    {isSoldOut ? (
-                                        <button disabled className="w-full py-2 bg-gray-500 text-white font-bold rounded-lg cursor-not-allowed">Sold Out</button>
-                                    ) : (
-                                        <button 
-                                            onClick={() => onBuyDecoration(item)} 
-                                            disabled={!canAfford}
-                                            className="w-full py-2 bg-yellow-600 text-white font-bold rounded-lg hover:bg-yellow-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
-                                        >
-                                            Buy for 🪙 {item.price}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        );
-    };
-
-    const renderContacts = () => {
-        const familiarContacts = townsfolk.filter(c => c.favorability >= 3);
-        return (
-            <div>
-                <h2 className="text-3xl font-bold mb-4 text-center text-stone-300">Contacts</h2>
-                {familiarContacts.length === 0 ? (
-                    <p className="text-center text-stone-400">No one has shared their contact info with you yet. Keep building relationships! (3+ ❤️)</p>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        {familiarContacts.map(contact => (
-                            <div key={contact.id} className="p-4 bg-stone-800/80 rounded-lg text-center">
-                                <div style={{ backgroundImage: `url(${contact.avatarUrl})` }} aria-label={contact.name} className="w-24 h-24 rounded-full mx-auto mb-2 border-4 border-amber-600 bg-cover bg-top"></div>
-                                <h3 className="text-xl font-bold">{contact.name}</h3>
-                                <div className="text-red-500 my-1">{'❤️'.repeat(contact.favorability)}</div>
-                                <button onClick={() => onStartNightChat(contact)} className="mt-2 px-4 py-1 bg-blue-600 text-white rounded-full hover:bg-blue-700">
-                                    Chat
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        );
-    };
-
+    
     return (
         <div className="min-h-screen bg-stone-800 text-white p-4 sm:p-8 flex flex-col" style={{backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")'}}>
             <header className="flex justify-between items-center mb-4 p-4 bg-black/30 rounded-lg">
@@ -557,46 +470,10 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
                     <button onClick={onEndNight} className="px-6 py-2 bg-purple-600 rounded-full hover:bg-purple-700 transition-colors">Start the Day ☀️</button>
                 </div>
             </header>
-
-            <div className="mb-4 flex justify-center gap-4 border-b-2 border-stone-600">
-                {(['baking', 'decorating', 'contacts'] as NightTab[]).map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`px-6 py-2 text-xl font-bold capitalize transition-colors rounded-t-lg ${activeTab === tab ? 'bg-stone-700/70 text-white' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'}`}
-                    >
-                        {tab}
-                    </button>
-                ))}
-            </div>
-
-            <main className="flex-grow bg-stone-700/70 p-6 rounded-2xl shadow-inner relative">
-                {activeTab === 'baking' && renderBaking()}
-                {activeTab === 'decorating' && renderDecorating()}
-                {activeTab === 'contacts' && renderContacts()}
-
-                {activeTab === 'baking' && (
-                    <button 
-                        onClick={() => setIsRecipeBookOpen(true)} 
-                        className="absolute bottom-4 right-4 bg-amber-800 text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-3xl z-20 hover:bg-amber-900 transition-transform transform hover:scale-110"
-                        title="Open Recipe Book"
-                    >
-                        📖
-                    </button>
-                )}
+            
+            <main className="flex-grow bg-stone-700/70 p-6 rounded-2xl shadow-inner">
+                {renderBakingContent()}
             </main>
-
-            {isRecipeBookOpen && (
-                <RecipeBook recipes={BREAD_RECIPES} onClose={() => setIsRecipeBookOpen(false)} />
-            )}
-            {nightChatCustomer && (
-                <ChatModal 
-                    customer={nightChatCustomer} 
-                    isReplying={isReplying}
-                    onClose={onEndNightChat} 
-                    onSendMessage={onSendMessage} 
-                />
-            )}
         </div>
     );
 };

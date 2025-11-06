@@ -30,7 +30,7 @@ export enum IngredientType {
     Salt = 'salt',
     Sugar = 'sugar',
 
-    // New
+    // New Baking
     RyeFlour = 'ryeFlour',
     WholeWheatFlour = 'wholeWheatFlour',
     StoneGroundFlour = 'stoneGroundFlour',
@@ -56,6 +56,12 @@ export enum IngredientType {
     Oats = 'oats',
     SunflowerSeeds = 'sunflowerSeeds',
     FlaxSeeds = 'flaxSeeds',
+
+    // New Coffee
+    CoffeeBean = 'coffeeBean',
+    MilkFoam = 'milkFoam',
+    Syrup = 'syrup',
+    ChocolateSauce = 'chocolateSauce',
 }
 
 export type Ingredients = Record<IngredientType, number>;
@@ -86,6 +92,7 @@ export interface Customer {
     conversation: { role: 'player' | 'customer'; text: string }[];
     mood?: Mood;
     desiredBread?: string;
+    desiredCoffee?: CoffeeType;
 }
 
 export enum BakingStep {
@@ -106,11 +113,27 @@ export enum CoffeeStep {
 }
 
 export enum CoffeeType {
+    // Bitter
     Espresso = 'Espresso',
-    CafeAuLait = 'Cafe au Lait',
+    Ristretto = 'Ristretto',
+    Macchiato = 'Macchiato',
+    // Balanced
     Cappuccino = 'Cappuccino',
+    Latte = 'Latte',
+    FlatWhite = 'Flat White',
+    // Milky
+    MilkCoffee = 'Milk Coffee',
+    SweetMilkCoffee = 'Sweet Milk Coffee',
+    CreamLatte = 'Cream Latte',
+    // Sweet
+    VanillaLatte = 'Vanilla Latte',
+    CaramelLatte = 'Caramel Latte',
+    SweetCreamCoffee = 'Sweet Cream Coffee',
+    // Special
     Mocha = 'Mocha',
-    LatteMacchiato = 'Latte Macchiato',
+    MochaLatte = 'Mocha Latte',
+    ChocolateMacchiato = 'Chocolate Macchiato',
+    DoubleChocolate = 'Double Chocolate',
 }
 
 export interface CoffeeRecipe {
