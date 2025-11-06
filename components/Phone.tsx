@@ -7,17 +7,14 @@ interface PhoneProps {
     townsfolk: Customer[];
     breadRecipes: Recipe[];
     coffeeRecipes: CoffeeRecipe[];
-    purchasedDecorations: string[];
-    gold: number;
     gamePhase: GamePhase;
     onStartNightChat: (customer: Customer) => void;
-    onBuyDecoration: (decoration: Decoration) => void;
 }
 
-type PhoneApp = 'home' | 'contacts' | 'baking' | 'coffee' | 'decor';
+type PhoneApp = 'home' | 'contacts' | 'baking' | 'coffee';
 
 const Phone: React.FC<PhoneProps> = (props) => {
-    const { townsfolk, breadRecipes, coffeeRecipes, purchasedDecorations, gold, gamePhase, onStartNightChat, onBuyDecoration } = props;
+    const { townsfolk, breadRecipes, coffeeRecipes, gamePhase, onStartNightChat } = props;
     const [isOpen, setIsOpen] = useState(false);
     const [activeApp, setActiveApp] = useState<PhoneApp>('home');
 
@@ -53,11 +50,6 @@ const Phone: React.FC<PhoneProps> = (props) => {
                                             {character.favorability > 0 ? '❤️'.repeat(character.favorability) : '🤍'}
                                         </div>
                                     </div>
-                                    {gamePhase === 'night' && character.favorability >= 3 && (
-                                        <button onClick={() => onStartNightChat(character)} className="px-3 py-1 bg-blue-500 text-white text-sm rounded-full hover:bg-blue-600">
-                                            Chat
-                                        </button>
-                                    )}
                                 </li>
                             ))}
                         </ul>
@@ -113,51 +105,11 @@ const Phone: React.FC<PhoneProps> = (props) => {
                         </main>
                     </div>
                 );
-            case 'decor':
-                 const purchasedCounts = purchasedDecorations.reduce((acc, id) => {
-                    acc[id] = (acc[id] || 0) + 1;
-                    return acc;
-                 }, {} as Record<string, number>);
-                return (
-                     <div className="bg-green-100 h-full">
-                        <header className="p-3 bg-green-600 text-white text-center font-bold text-xl sticky top-0">Decor Shop</header>
-                        <main className="p-2 overflow-y-auto" style={{height: 'calc(100% - 48px)'}}>
-                            <div className="grid grid-cols-1 gap-3">
-                                {DECORATIONS.map(item => {
-                                    const count = purchasedCounts[item.id] || 0;
-                                    const isSoldOut = count >= item.limit;
-                                    const canAfford = gold >= item.price;
-                                    return (
-                                        <div key={item.id} className="bg-white/80 p-3 rounded-lg shadow-sm flex gap-3">
-                                            <span className="text-4xl">{item.icon}</span>
-                                            <div className="flex-grow">
-                                                <div className="flex justify-between items-start">
-                                                    <h3 className="font-bold text-green-900">{item.name}</h3>
-                                                    <span className="text-xs font-bold bg-black/10 px-2 py-0.5 rounded-full">{count}/{item.limit}</span>
-                                                </div>
-                                                <p className="text-xs text-stone-600">{item.description}</p>
-                                                <p className="text-xs text-amber-600 font-bold">💖 +{item.comfortValue} Comfort</p>
-                                                {isSoldOut ? (
-                                                    <button disabled className="w-full mt-2 py-1 text-sm bg-gray-400 text-white font-bold rounded-lg cursor-not-allowed">Sold Out</button>
-                                                ) : (
-                                                    <button onClick={() => onBuyDecoration(item)} disabled={!canAfford} className="w-full mt-2 py-1 text-sm bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400">
-                                                        Buy for 🪙 {item.price}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </main>
-                    </div>
-                );
             default: // Home screen
                 const apps = [
                     { name: 'Contacts', icon: '👥', app: 'contacts' as PhoneApp, color: 'bg-blue-500' },
                     { name: 'Baking Recipes', icon: '🍞', app: 'baking' as PhoneApp, color: 'bg-amber-500' },
                     { name: 'Coffee Recipes', icon: '☕', app: 'coffee' as PhoneApp, color: 'bg-stone-600' },
-                    { name: 'Decor Shop', icon: '🛋️', app: 'decor' as PhoneApp, color: 'bg-green-600' },
                 ];
                 return (
                     <div className="p-4 grid grid-cols-2 gap-4 bg-gray-800 h-full">

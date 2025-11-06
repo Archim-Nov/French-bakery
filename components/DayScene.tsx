@@ -20,6 +20,8 @@ interface DaySceneProps {
     dayChatCustomer: Customer | null;
     currentCafeCustomer: Customer | null;
     isGeneratingCafeCustomer: boolean;
+    dayTime: number;
+    isShopClosed: boolean;
     updateGold: (amount: number) => void;
     onSellPackedBreads: (breadIds: string[]) => void;
     onServeCoffee: (customerId: string, coffeeType: CoffeeType) => void;
@@ -40,8 +42,15 @@ const formatDate = (date: GameDate): string => {
     return `Year ${date.year}, ${date.season} ${date.day} (${getWeekday(date.day)})`;
 };
 
+const formatDayTime = (minutesPastSeven: number): string => {
+    const totalMinutes = 7 * 60 + minutesPastSeven;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
 const DayScene: React.FC<DaySceneProps> = (props) => {
-    const { gold, breads, townsfolk, inventoryIngredients, currentCustomer, seatedCustomers, maxSeats, cafeComfort, purchasedDecorations, isGeneratingCustomer, isReplying, gameDate, dayChatCustomer, currentCafeCustomer, isGeneratingCafeCustomer, updateGold, onSellPackedBreads, onServeCoffee, onSellCoffeeToWaitingCustomer, onEndDay, onSendMessage, onStartDayChat, onEndDayChat, onDayChatSendMessage } = props;
+    const { gold, breads, townsfolk, inventoryIngredients, currentCustomer, seatedCustomers, maxSeats, cafeComfort, purchasedDecorations, isGeneratingCustomer, isReplying, gameDate, dayChatCustomer, currentCafeCustomer, isGeneratingCafeCustomer, dayTime, isShopClosed, updateGold, onSellPackedBreads, onServeCoffee, onSellCoffeeToWaitingCustomer, onEndDay, onSendMessage, onStartDayChat, onEndDayChat, onDayChatSendMessage } = props;
     const [chatInput, setChatInput] = useState('');
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     
@@ -413,6 +422,8 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
             </div>
         </div>
     );
+    
+    const roundedDayTime = Math.floor(dayTime / 30) * 30;
 
     return (
         <div className="min-h-screen bg-amber-100 relative overflow-hidden" style={{backgroundImage: 'url("https://www.transparenttextures.com/patterns/brushed-alum.png")'}}>
@@ -421,8 +432,11 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                 <div className="p-4 sm:p-8 flex flex-col h-screen">
                     <header className="flex justify-between items-center mb-4 p-4 bg-white/50 rounded-lg shadow-md shrink-0">
                         <div>
-                             <h1 className="text-4xl font-bold text-amber-900">Gemini's Bakery</h1>
-                            <p className="text-xl text-amber-800">{formatDate(gameDate)}</p>
+                             <h1 className="text-4xl font-bold text-amber-900">La Boulangerie</h1>
+                             <div className="flex items-baseline gap-3">
+                                <p className="text-xl text-amber-800">{formatDate(gameDate)} - {isShopClosed ? '21:00' : formatDayTime(roundedDayTime)}</p>
+                                {isShopClosed && <p className="text-red-600 font-bold animate-pulse">Now Closed</p>}
+                             </div>
                         </div>
                         <div className="flex items-center gap-4 text-2xl">
                             <span className="font-bold">🪙 {gold}</span>
@@ -465,7 +479,7 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                                                         </div>
                                                     </div>
                                                 )}
-                                                {!isGeneratingCustomer && !currentCustomer && <div className="flex-grow flex items-center justify-center text-center"><p className="text-2xl text-stone-600">Waiting for a customer...</p></div>}
+                                                {!isGeneratingCustomer && !currentCustomer && <div className="flex-grow flex items-center justify-center text-center"><p className="text-2xl text-stone-600">{isShopClosed ? "The day is over. Time to clean up!" : "Waiting for a customer..."}</p></div>}
                                             </div>
                                         </div>
                                     </div>
@@ -499,7 +513,7 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                                             <div className="flex flex-wrap gap-8 justify-center items-end pt-4">
                                                 {Array.from({ length: maxSeats }).map((_, i) => { const customer = seatedCustomers[i]; if (customer) { return (<div key={customer.id} onDrop={(e) => handleCafeDrop(e, customer.id)} onDragOver={handleDragOver} onDragLeave={handleDragLeave} className="text-center p-4 border-4 border-dashed border-transparent rounded-lg transition-all duration-300"><div style={{ backgroundImage: `url(${customer.avatarUrl})` }} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-amber-700 shadow-xl bg-cover bg-top cursor-pointer hover:scale-110 transition-transform" onClick={() => onStartDayChat(customer.id)}></div><h3 className="text-xl font-bold">{customer.name}</h3><div className="relative mt-2 bg-white/80 p-3 rounded-lg shadow-md max-w-xs mx-auto"><div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-white/80"></div><p className="text-md italic">"{customer.coffeeDialogue}"</p></div></div>); } return (<div key={`seat-${i}`} className="text-center p-4"><div className="w-24 h-24 rounded-full mx-auto mb-4 bg-black/10 flex items-center justify-center text-4xl text-stone-600">🪑</div><p className="font-bold text-stone-700">Empty Seat</p></div>); })}
                                             </div>
-                                            {seatedCustomers.length === 0 && maxSeats === 0 && !currentCafeCustomer && !isGeneratingCafeCustomer && <p className="text-xl text-stone-700 pt-16">Buy some seats to have customers stay!</p>}
+                                            {seatedCustomers.length === 0 && maxSeats === 0 && !currentCafeCustomer && !isGeneratingCafeCustomer && <p className="text-xl text-stone-700 pt-16">{isShopClosed ? "Closing time..." : "Buy some seats to have customers stay!"}</p>}
                                         </div>
                                     </div>
                                 </div>

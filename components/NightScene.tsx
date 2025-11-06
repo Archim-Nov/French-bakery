@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import type { Ingredients, Bread, DragItem, Recipe, GameDate } from '../types';
+import type { Ingredients, Bread, DragItem, Recipe, GameDate, Customer, Decoration } from '../types';
 import { IngredientType, BakingStep, BreadQuality } from '../types';
-import { INGREDIENT_PRICES, KNEAD_TARGET, BAKE_TIME_MS, BAKE_PERFECT_WINDOW_START, BAKE_PERFECT_WINDOW_END, BREAD_SALE_PRICE_MODIFIERS, INGREDIENT_EMOJIS, SIMPLE_BAKE_DURATION_MS } from '../constants';
+import { INGREDIENT_PRICES, KNEAD_TARGET, BAKE_TIME_MS, BAKE_PERFECT_WINDOW_START, BAKE_PERFECT_WINDOW_END, BREAD_SALE_PRICE_MODIFIERS, INGREDIENT_EMOJIS, SIMPLE_BAKE_DURATION_MS, DECORATIONS } from '../constants';
 import { BREAD_RECIPES } from '../recipes';
 
 interface NightSceneProps {
     gold: number;
     inventory: { ingredients: Ingredients; breads: Bread[] };
     gameDate: GameDate;
+    townsfolk: Customer[];
+    purchasedDecorations: string[];
     updateGold: (amount: number) => void;
     updateInventory: (newInventory: { ingredients: Ingredients; breads: Bread[] }) => void;
     onEndNight: () => void;
+    onBuyDecoration: (decoration: Decoration) => void;
+    onStartNightChat: (customer: Customer) => void;
 }
 
 const getWeekday = (day: number): string => {
@@ -22,13 +26,19 @@ const formatDate = (date: GameDate): string => {
     return `Year ${date.year}, ${date.season} ${date.day} (${getWeekday(date.day)})`;
 };
 
+const COFFEE_ONLY_INGREDIENTS = [
+    IngredientType.CoffeeBean,
+    IngredientType.MilkFoam,
+    IngredientType.Syrup,
+    IngredientType.ChocolateSauce,
+];
 const BAKING_INGREDIENTS = Object.values(IngredientType).filter(
-    ing => !(ing.includes('Coffee') || ing.includes('MilkFoam') || ing.includes('Syrup') || ing.includes('ChocolateSauce'))
+    (ing) => !COFFEE_ONLY_INGREDIENTS.includes(ing)
 );
 
 
 const NightScene: React.FC<NightSceneProps> = (props) => {
-    const { gold, inventory, gameDate, updateGold, updateInventory, onEndNight } = props;
+    const { gold, inventory, gameDate, townsfolk, purchasedDecorations, updateGold, updateInventory, onEndNight, onBuyDecoration, onStartNightChat } = props;
     const [step, setStep] = useState<BakingStep>(BakingStep.Buy);
     const [mixingBowl, setMixingBowl] = useState<IngredientType[]>([]);
     const [kneadCount, setKneadCount] = useState(0);
@@ -36,6 +46,7 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
     const [isBaking, setIsBaking] = useState(false);
     const [currentRecipe, setCurrentRecipe] = useState<Recipe | null>(null);
     const [recipeHint, setRecipeHint] = useState<string | null>(null);
+    const [activeView, setActiveView] = useState<'bakery' | 'shopfront' | 'bedroom'>('bakery');
 
     const [fermentProgress, setFermentProgress] = useState(0);
     const [isFermenting, setIsFermenting] = useState(false);
@@ -458,6 +469,127 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
         }
     };
     
+    const renderDecorShop = () => {
+        const purchasedCounts = purchasedDecorations.reduce((acc, id) => {
+           acc[id] = (acc[id] || 0) + 1;
+           return acc;
+        }, {} as Record<string, number>);
+       return (
+            <div className="text-center">
+                <h2 className="text-3xl font-bold mb-4 text-stone-300">Decor Shop</h2>
+                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {DECORATIONS.map(item => {
+                        const count = purchasedCounts[item.id] || 0;
+                        const isSoldOut = count >= item.limit;
+                        const canAfford = gold >= item.price;
+                        return (
+                             <div key={item.id} className="bg-amber-100 text-stone-800 p-3 rounded-lg shadow-md flex flex-col items-center text-center">
+                                <span className="text-4xl">{item.icon}</span>
+                                <h3 className="font-bold my-1">{item.name}</h3>
+                                <p className="text-xs text-stone-600 flex-grow">{item.description}</p>
+                                <p className="text-xs text-amber-600 font-bold">💖 +{item.comfortValue} Comfort</p>
+                                 <span className="text-xs font-bold bg-black/10 px-2 py-0.5 rounded-full my-1">{count}/{item.limit}</span>
+                                {isSoldOut ? (
+                                    <button disabled className="w-full mt-2 py-1 text-sm bg-gray-400 text-white font-bold rounded-lg cursor-not-allowed">Sold Out</button>
+                                ) : (
+                                    <button onClick={() => onBuyDecoration(item)} disabled={!canAfford} className="w-full mt-2 py-1 text-sm bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400">
+                                        Buy for 🪙 {item.price}
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+       );
+    };
+
+    const renderBedroom = () => {
+        const onlineFriends = townsfolk.filter(p => p.favorability >= 3);
+
+        return (
+            <div className="p-4 h-full flex flex-col md:flex-row gap-8">
+                {/* Online Friends Section */}
+                <div className="w-full md:w-1/2 flex flex-col">
+                    <h2 className="text-2xl font-bold mb-4 text-stone-300 text-center">Online Friends</h2>
+                    <div className="flex-grow bg-stone-800/60 rounded-lg p-4 overflow-y-auto">
+                        {onlineFriends.length > 0 ? (
+                            <ul className="space-y-3">
+                                {onlineFriends.map(character => (
+                                    <li key={character.id} className="flex items-center gap-4 p-2 bg-stone-900/70 rounded-lg shadow-sm">
+                                        <img src={character.avatarUrl} alt={character.name} className="w-14 h-14 rounded-full border-2 border-amber-300 shrink-0 object-cover" />
+                                        <div className="flex-grow text-left">
+                                            <p className="font-bold text-lg text-white">{character.name}</p>
+                                            <div className="mt-1 text-red-500" title={`Favorability: ${character.favorability}`}>
+                                                {'❤️'.repeat(character.favorability)}
+                                            </div>
+                                        </div>
+                                        <button onClick={() => onStartNightChat(character)} className="px-4 py-2 bg-blue-500 text-white text-sm rounded-full hover:bg-blue-600">
+                                            Chat
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                             <div className="flex items-center justify-center h-full text-center text-stone-400">
+                                <p>Build stronger friendships (3+ ❤️) to chat with people at night.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Partner Section */}
+                <div className="w-full md:w-1/2 flex flex-col">
+                     <h2 className="text-2xl font-bold mb-4 text-stone-300 text-center">Partner</h2>
+                     <div className="flex-grow bg-stone-800/60 rounded-lg p-4 flex items-center justify-center">
+                        <div className="text-center text-stone-400">
+                             <div className="text-6xl mb-4">?</div>
+                             <p>You don't have a partner yet.</p>
+                             <p className="text-sm">Deepen your bond with someone special.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    const ViewSwitcher = () => (
+        <div className="absolute top-6 left-6 z-10" title="Switch View">
+            <div className="relative flex w-[26rem] items-center rounded-full bg-stone-900/80 p-1 shadow-inner">
+                <div
+                    onClick={() => setActiveView('bakery')}
+                    className="relative z-10 w-1/3 cursor-pointer rounded-full py-2 text-center"
+                >
+                    <span className={`font-bold transition-colors duration-500 whitespace-nowrap ${activeView === 'bakery' ? 'text-amber-300' : 'text-stone-400'}`}>
+                        🍞 Bakery
+                    </span>
+                </div>
+                <div
+                    onClick={() => setActiveView('shopfront')}
+                    className="relative z-10 w-1/3 cursor-pointer rounded-full py-2 text-center"
+                >
+                     <span className={`font-bold transition-colors duration-500 whitespace-nowrap ${activeView === 'shopfront' ? 'text-amber-300' : 'text-stone-400'}`}>
+                        🛋️ Shopfront
+                    </span>
+                </div>
+                 <div
+                    onClick={() => setActiveView('bedroom')}
+                    className="relative z-10 w-1/3 cursor-pointer rounded-full py-2 text-center"
+                >
+                     <span className={`font-bold transition-colors duration-500 whitespace-nowrap ${activeView === 'bedroom' ? 'text-amber-300' : 'text-stone-400'}`}>
+                        🛏️ Bedroom
+                    </span>
+                </div>
+                <div
+                    className={`absolute left-1 inset-y-1 w-1/3 rounded-full bg-stone-600/50 shadow-md transition-transform duration-500 ease-in-out`}
+                    style={{
+                        transform: `translateX(${activeView === 'bakery' ? '0%' : activeView === 'shopfront' ? '100%' : '200%'})`
+                    }}
+                />
+            </div>
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-stone-800 text-white p-4 sm:p-8 flex flex-col" style={{backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")'}}>
             <header className="flex justify-between items-center mb-4 p-4 bg-black/30 rounded-lg">
@@ -471,8 +603,24 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
                 </div>
             </header>
             
-            <main className="flex-grow bg-stone-700/70 p-6 rounded-2xl shadow-inner">
-                {renderBakingContent()}
+            <main className="flex-grow bg-stone-700/70 p-6 rounded-2xl shadow-inner flex flex-col relative overflow-hidden">
+                <ViewSwitcher />
+                <div className="h-full w-full overflow-hidden pt-16">
+                    <div
+                        className="flex h-full w-[300%] transition-transform duration-500 ease-in-out"
+                        style={{ transform: `translateX(-${activeView === 'bakery' ? 0 : activeView === 'shopfront' ? 33.33 : 66.66}%)` }}
+                    >
+                        <div className="w-1/3 h-full overflow-y-auto pr-2">
+                             {renderBakingContent()}
+                        </div>
+                        <div className="w-1/3 h-full overflow-y-auto px-2">
+                             {renderDecorShop()}
+                        </div>
+                        <div className="w-1/3 h-full overflow-y-auto pl-2">
+                             {renderBedroom()}
+                        </div>
+                    </div>
+                </div>
             </main>
         </div>
     );

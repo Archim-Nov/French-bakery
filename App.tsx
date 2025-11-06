@@ -69,6 +69,9 @@ const App: React.FC = () => {
     const [dailyEarnings, setDailyEarnings] = useState(0);
     const [dailyFavorabilityChanges, setDailyFavorabilityChanges] = useState<FavorabilityChange[]>([]);
 
+    const [dayTime, setDayTime] = useState(0); // in-game minutes past 7:00
+    const [isShopClosed, setIsShopClosed] = useState(false);
+
 
     const cafeComfort = purchasedDecorations.reduce((total, decorId) => {
         const decor = DECORATIONS.find(d => d.id === decorId);
@@ -194,7 +197,7 @@ const App: React.FC = () => {
     };
     
     const prepareNextCustomer = useCallback(async () => {
-        if (isGeneratingCustomer || currentCustomer) return;
+        if (isGeneratingCustomer || currentCustomer || isShopClosed) return;
 
         const availableTownsfolk = townsfolk.filter(
             p => p.id !== currentCustomer?.id && p.id !== currentCafeCustomer?.id && !seatedCustomers.some(sc => sc.id === p.id)
@@ -229,10 +232,10 @@ const App: React.FC = () => {
         } finally {
             setIsGeneratingCustomer(false);
         }
-    }, [isGeneratingCustomer, currentCustomer, townsfolk, seatedCustomers, currentCafeCustomer]);
+    }, [isGeneratingCustomer, currentCustomer, townsfolk, seatedCustomers, currentCafeCustomer, isShopClosed]);
 
     const prepareNextCafeCustomer = useCallback(async () => {
-        if (isGeneratingCafeCustomer || currentCafeCustomer) return;
+        if (isGeneratingCafeCustomer || currentCafeCustomer || isShopClosed) return;
     
         const availableTownsfolk = townsfolk.filter(
             p => p.id !== currentCustomer?.id && p.id !== currentCafeCustomer?.id && !seatedCustomers.some(sc => sc.id === p.id)
@@ -267,7 +270,7 @@ const App: React.FC = () => {
         } finally {
             setIsGeneratingCafeCustomer(false);
         }
-    }, [isGeneratingCafeCustomer, currentCafeCustomer, currentCustomer, townsfolk, seatedCustomers]);
+    }, [isGeneratingCafeCustomer, currentCafeCustomer, currentCustomer, townsfolk, seatedCustomers, isShopClosed]);
 
     const handleDaySendMessage = async (message: string) => {
         if (!currentCustomer) return;
@@ -345,6 +348,31 @@ const App: React.FC = () => {
             }
         }
     };
+    
+    // Day Timer Effect
+    useEffect(() => {
+        if (gamePhase === 'day') {
+            setIsShopClosed(false);
+            setDayTime(0);
+
+            const DAY_DURATION_MINUTES = 14 * 60; // 840 minutes from 7:00 to 21:00
+            
+            const timer = setInterval(() => {
+                setDayTime(prevTime => {
+                    // 2 game minutes pass every real second (for a 7-minute day)
+                    const newTime = prevTime + 2; 
+                    if (newTime >= DAY_DURATION_MINUTES) {
+                        setIsShopClosed(true);
+                        clearInterval(timer);
+                        return DAY_DURATION_MINUTES;
+                    }
+                    return newTime;
+                });
+            }, 1000); // Update every second
+
+            return () => clearInterval(timer);
+        }
+    }, [gamePhase]);
 
     useEffect(() => {
         if (gamePhase === 'day' && !currentCustomer && !isGeneratingCustomer) {
@@ -424,9 +452,13 @@ const App: React.FC = () => {
                     gold={gold}
                     inventory={inventory}
                     gameDate={gameDate}
+                    townsfolk={townsfolk}
+                    purchasedDecorations={purchasedDecorations}
                     updateGold={updateGold}
                     updateInventory={updateInventory}
                     onEndNight={() => setGamePhase('day')}
+                    onBuyDecoration={handleBuyDecoration}
+                    onStartNightChat={handleStartNightChat}
                 />;
             case 'summary':
                 return <EndOfDaySummary
@@ -453,6 +485,8 @@ const App: React.FC = () => {
                     dayChatCustomer={dayChatCustomer}
                     currentCafeCustomer={currentCafeCustomer}
                     isGeneratingCafeCustomer={isGeneratingCafeCustomer}
+                    dayTime={dayTime}
+                    isShopClosed={isShopClosed}
                     updateGold={updateGold}
                     onSellPackedBreads={handleSellPackedBreads}
                     onServeCoffee={handleServeCoffee}
@@ -474,11 +508,8 @@ const App: React.FC = () => {
                     townsfolk={townsfolk}
                     breadRecipes={BREAD_RECIPES}
                     coffeeRecipes={COFFEE_RECIPES}
-                    purchasedDecorations={purchasedDecorations}
-                    gold={gold}
                     gamePhase={gamePhase}
                     onStartNightChat={handleStartNightChat}
-                    onBuyDecoration={handleBuyDecoration}
                 />
             )}
             {nightChatCustomer && (

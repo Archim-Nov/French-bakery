@@ -55,9 +55,8 @@ const ChatModal: React.FC<ChatModalProps> = ({ customer, isReplying, onClose, on
                     <main ref={chatHistoryRef} className="flex-grow p-4 overflow-y-auto bg-white/50 space-y-4">
                         {conversationToDisplay.map((msg, index) => (
                             <div key={index} className={`chat ${msg.role === 'player' ? 'chat-end' : 'chat-start'}`}>
-                                <div className="chat-image avatar">
-                                    <div className="w-10 h-10 rounded-full bg-cover" style={{backgroundImage: msg.role === 'player' ? `url('https://em-content.zobj.net/source/microsoft/379/person-cook_1f469-200d-1f373.png')` : `url(${customer.avatarUrl})`}}>
-                                    </div>
+                                <div className="chat-header font-bold text-stone-600 mb-1">
+                                  {msg.role === 'player' ? 'You' : customer.name}
                                 </div>
                                 <div className={`chat-bubble text-white ${msg.role === 'player' ? 'bg-blue-500' : 'bg-green-600'}`}>
                                     {msg.text}
@@ -66,8 +65,8 @@ const ChatModal: React.FC<ChatModalProps> = ({ customer, isReplying, onClose, on
                         ))}
                         {isReplying && (
                             <div className="chat chat-start">
-                                <div className="chat-image avatar">
-                                     <div className="w-10 h-10 rounded-full bg-cover" style={{backgroundImage: `url(${customer.avatarUrl})`}}></div>
+                                <div className="chat-header font-bold text-stone-600 mb-1">
+                                  {customer.name}
                                 </div>
                                 <div className="chat-bubble bg-green-600/70 animate-pulse">...</div>
                             </div>
@@ -81,7 +80,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ customer, isReplying, onClose, on
                                 onChange={(e) => setChatInput(e.target.value)}
                                 placeholder="Say something..."
                                 disabled={isReplying}
-                                className="flex-grow p-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-stone-800"
+                                className="flex-grow p-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white text-stone-800"
                                 autoFocus
                             />
                             <button type="submit" disabled={isReplying || !chatInput.trim()} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-stone-400">
