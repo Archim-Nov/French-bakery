@@ -85,6 +85,7 @@ export interface Customer {
     favorability: number;
     conversation: { role: 'player' | 'customer'; text: string }[];
     mood?: Mood;
+    desiredBread?: string;
 }
 
 export enum BakingStep {

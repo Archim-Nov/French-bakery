@@ -304,14 +304,15 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
 
         const finalPrice = Math.round(currentRecipe.basePrice * BREAD_SALE_PRICE_MODIFIERS[fermentationOutcome]);
 
-        const newBread: Bread = {
-            id: `bread-${Date.now()}`,
+        const newBreads: Bread[] = Array.from({ length: 5 }, (_, i) => ({
+            id: `bread-${Date.now()}-${i}`,
             quality: fermentationOutcome,
             name: currentRecipe.name,
             price: finalPrice,
-        };
+        }));
 
-        updateInventory({ ...inventory, breads: [...inventory.breads, newBread] });
+
+        updateInventory({ ...inventory, breads: [...inventory.breads, ...newBreads] });
         
         // Reset for next bake
         setMixingBowl([]);
@@ -464,7 +465,7 @@ const NightScene: React.FC<NightSceneProps> = (props) => {
                 return (
                     <div className="text-center">
                         <h2 className="text-3xl font-bold mb-4 text-green-300">Baking Complete!</h2>
-                        <p className="mb-4">You've baked a new loaf of bread.</p>
+                        <p className="mb-4">You've baked 5 new loaves of bread.</p>
                         <button onClick={() => setStep(BakingStep.Buy)} className="px-8 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg hover:bg-blue-700 transition-colors">Bake Another</button>
                     </div>
                 );

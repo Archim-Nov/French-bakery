@@ -7,6 +7,7 @@ import type { GamePhase, Ingredients, Bread, Customer, Decoration, Mood, CoffeeT
 import { IngredientType, Season } from './types';
 import { COFFEE_RECIPES, COMFORT_PRICE_BONUS_PER_POINT, DECORATIONS } from './constants';
 import { TOWNSFOLK } from './characters';
+import { BREAD_RECIPES } from './recipes';
 
 const App: React.FC = () => {
     const [gamePhase, setGamePhase] = useState<GamePhase>('night');
@@ -87,17 +88,25 @@ const App: React.FC = () => {
         });
     };
 
-    const handleSellBread = (breadId: string) => {
+    const handleSellPackedBreads = (breadIds: string[]) => {
+        const breadsToSell = inventory.breads.filter(b => breadIds.includes(b.id));
+        if (breadsToSell.length === 0 || !currentCustomer) return;
+        
+        const isOrderCorrect = breadsToSell.some(b => b.name === currentCustomer.desiredBread);
+        
+        const totalPrice = breadsToSell.reduce((sum, b) => sum + b.price, 0);
+        updateGold(totalPrice);
+        
         setInventory(prev => ({
             ...prev,
-            breads: prev.breads.filter(b => b.id !== breadId)
+            breads: prev.breads.filter(b => !breadIds.includes(b.id))
         }));
         
-        if (currentCustomer) {
-            let updatedFavorability = currentCustomer.favorability;
+        let updatedFavorability = currentCustomer.favorability;
 
+        if (isOrderCorrect) {
             setTownsfolk(prevTownsfolk => {
-                const updatedTownsfolk = prevTownsfolk.map(person => {
+                return prevTownsfolk.map(person => {
                     if (person.id === currentCustomer.id) {
                         updatedFavorability = person.favorability + 1;
                         handleFavorabilityIncrease(person.id, person.name, person.avatarUrl, updatedFavorability);
@@ -105,7 +114,6 @@ const App: React.FC = () => {
                     }
                     return person;
                 });
-                return updatedTownsfolk;
             });
             
             let stayProbability = 0;
@@ -125,8 +133,9 @@ const App: React.FC = () => {
             if (willStay && seatedCustomers.length < maxSeats) {
                 setSeatedCustomers(prev => [...prev, currentCustomer]);
             }
-            setCurrentCustomer(null);
         }
+        
+        setCurrentCustomer(null);
     };
 
     const handleServeCoffee = (customerId: string, coffeeType: CoffeeType) => {
@@ -134,7 +143,6 @@ const App: React.FC = () => {
         const recipe = COFFEE_RECIPES.find(r => r.name === coffeeType);
         if (!customer || !recipe) return;
         
-        // Consume ingredients
         const newIngredients = { ...inventory.ingredients };
         let canAffordIngredients = true;
         for (const [ing, amount] of Object.entries(recipe.ingredients)) {
@@ -184,14 +192,18 @@ const App: React.FC = () => {
         try {
             const moods: Mood[] = ['happy', 'stressed', 'thoughtful', 'grumpy', 'energetic'];
             const randomMood = moods[Math.floor(Math.random() * moods.length)];
+            
+            const desiredBreadRecipe = BREAD_RECIPES[Math.floor(Math.random() * BREAD_RECIPES.length)];
+            const desiredBreadName = desiredBreadRecipe.name;
 
-            const { dialogue, coffeeDialogue } = await generateDailyDialogue(nextVisitor.personality, nextVisitor.name, randomMood);
+            const { dialogue, coffeeDialogue } = await generateDailyDialogue(nextVisitor.personality, nextVisitor.name, randomMood, desiredBreadName);
             
             setCurrentCustomer({ 
                 ...nextVisitor, 
                 dialogue,
                 coffeeDialogue,
                 mood: randomMood,
+                desiredBread: desiredBreadName,
                 conversation: [], // Reset conversation for new visit
             });
         } catch (error) {
@@ -392,7 +404,7 @@ const App: React.FC = () => {
             gameDate={gameDate}
             dayChatCustomer={dayChatCustomer}
             updateGold={updateGold}
-            onSellBread={handleSellBread}
+            onSellPackedBreads={handleSellPackedBreads}
             onServeCoffee={handleServeCoffee}
             onEndDay={handleEndDay}
             onSendMessage={handleDaySendMessage}

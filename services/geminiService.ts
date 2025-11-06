@@ -12,12 +12,12 @@ const dialogueSchema = {
   required: ['dialogue', 'coffeeDialogue'],
 };
 
-export const generateDailyDialogue = async (personality: string, name: string, mood: Mood): Promise<{dialogue: string, coffeeDialogue: string}> => {
+export const generateDailyDialogue = async (personality: string, name: string, mood: Mood, desiredBread: string): Promise<{dialogue: string, coffeeDialogue: string}> => {
     try {
         const prompt = `You are a character named ${name} in a bakery game. Your personality is: "${personality}". 
         Today, your mood is ${mood}. 
         Generate two short, in-character lines of dialogue based on this mood:
-        1. A greeting when you enter the bakery to order bread.
+        1. A greeting when you enter the bakery to order a ${desiredBread}.
         2. A comment you'd make if you decide to stay for a coffee.
         Return the response strictly as a JSON object matching the provided schema. Do not include any markdown formatting.`;
 
@@ -42,7 +42,7 @@ export const generateDailyDialogue = async (personality: string, name: string, m
         console.error(`Error generating dialogue for ${name}:`, error);
         // Fallback dialogue
         return {
-            dialogue: "Just a regular loaf for me, please.",
+            dialogue: `Just a ${desiredBread} for me, please.`,
             coffeeDialogue: "I suppose I have time for a coffee.",
         };
     }

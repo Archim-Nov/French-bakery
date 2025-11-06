@@ -43,7 +43,7 @@ export const KNEAD_TARGET = 15; // Default knead target
 export const BAKE_TIME_MS = 10000; // Default ferment time: 10 seconds
 export const BAKE_PERFECT_WINDOW_START = 0.7; // 70%
 export const BAKE_PERFECT_WINDOW_END = 0.9; // 90%
-export const SIMPLE_BAKE_DURATION_MS = 5000; // 5 seconds for simple baking
+export const SIMPLE_BAKE_DURATION_MS = 3000; // 3 seconds for simple baking
 
 
 export const INGREDIENT_EMOJIS: Record<IngredientType, string> = {
