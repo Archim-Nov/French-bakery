@@ -69,7 +69,7 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
     
     const availableBreads = breads.filter(b => !breadsToPack.some(p => p.id === b.id));
 
-    const groupedAvailableBreads = availableBreads.reduce<Record<string, { bread: Bread; count: number; ids: string[] }>>((acc, bread) => {
+    const groupedAvailableBreads = availableBreads.reduce((acc, bread) => {
         const key = `${bread.name}-${bread.quality}-${bread.price}`;
         if (!acc[key]) {
             acc[key] = { bread, count: 0, ids: [] };
@@ -77,7 +77,7 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
         acc[key].count++;
         acc[key].ids.push(bread.id);
         return acc;
-    }, {});
+    }, {} as Record<string, { bread: Bread; count: number; ids: string[] }>);
 
 
     useEffect(() => {
@@ -252,7 +252,8 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
     };
     
     const handleUpdateCoffeeMix = (ingredient: IngredientType, change: 1 | -1) => {
-        const totalIngredients = Object.values(coffeeMix).reduce((sum, count = 0) => sum + count, 0);
+        const currentCounts = Object.values(coffeeMix) as number[];
+        const totalIngredients = currentCounts.reduce((sum, count) => sum + (count || 0), 0);
 
         if (change === 1 && totalIngredients >= 5) {
             return;
@@ -296,11 +297,13 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
             case CoffeeStep.Idle: return <div className="text-center p-4"><button onClick={() => setCoffeeStep(CoffeeStep.Grind)} className="px-6 py-3 bg-stone-600 text-white font-bold rounded-lg shadow-lg hover:bg-stone-700 transition-colors w-full"><span className="text-2xl mr-2">🫘</span> Grind Beans</button></div>;
             case CoffeeStep.Grind: return <div className="text-center p-4"><h3 className="font-bold mb-2">Grind the Beans!</h3><p className="text-sm mb-2">Click the grinder!</p><div onClick={handleGrind} className="w-24 h-24 bg-stone-300 rounded-full mx-auto flex items-center justify-center cursor-pointer active:scale-95 transition-transform text-5xl">⚙️</div><div className="w-full bg-gray-200 rounded-full h-2.5 mt-4 overflow-hidden"><div className="bg-stone-500 h-2.5 rounded-full" style={{ width: `${Math.min(100, (grindCount / GRIND_TARGET) * 100)}%` }}></div></div>{grindCount >= GRIND_TARGET && <p className="mt-2 text-sm font-bold text-green-600 animate-pulse">Ready to mix!</p>}</div>;
             case CoffeeStep.Mix:
-                 const totalIngredients = Object.values(coffeeMix).reduce((sum, count = 0) => sum + count, 0);
+                 const currentCounts = Object.values(coffeeMix) as number[];
+                 const totalIngredients = currentCounts.reduce((sum, count) => sum + (count || 0), 0);
                  const matchedRecipe = findCoffeeRecipe(coffeeMix);
 
                  const mixSlots: IngredientType[] = [];
-                 for (const [ing, count] of Object.entries(coffeeMix)) {
+                 for (const [ing, rawCount] of Object.entries(coffeeMix)) {
+                     const count = rawCount as number;
                      for (let i = 0; i < (count || 0); i++) {
                          mixSlots.push(ing as IngredientType);
                      }
@@ -472,7 +475,33 @@ const DayScene: React.FC<DaySceneProps> = (props) => {
                                                             {currentCustomer.favorability >= 1 && (
                                                                 <div className="mt-6 w-full max-w-lg bg-stone-100 rounded-lg shadow-inner p-4 flex flex-col">
                                                                     <h3 className="text-lg font-bold text-stone-700 mb-2 text-center">Chat with {currentCustomer.name}</h3>
-                                                                    <div ref={chatHistoryRef} className="flex-grow h-48 overflow-y-auto mb-2 p-2 bg-white rounded">{currentCustomer.conversation.map((msg, index) => (<div key={index} className={`chat ${msg.role === 'player' ? 'chat-end' : 'chat-start'}`}><div className={`chat-bubble text-white ${msg.role === 'player' ? 'bg-blue-500' : 'bg-green-600'}`}>{msg.text}</div></div>))}{isReplying && <div className="chat chat-start"><div className="chat-bubble bg-green-600/70 animate-pulse">...</div></div>}</div>
+                                                                    <div ref={chatHistoryRef} className="flex-grow h-48 overflow-y-auto mb-2 p-2 bg-stone-50 rounded-lg border border-stone-200 space-y-3 custom-scrollbar">
+                                                                        {currentCustomer.conversation.map((msg, index) => {
+                                                                            const isPlayer = msg.role === 'player';
+                                                                            return (
+                                                                                <div key={index} className={`flex w-full ${isPlayer ? 'justify-end' : 'justify-start'}`}>
+                                                                                    <div className={`max-w-[85%] px-3 py-2 text-sm shadow-sm ${
+                                                                                        isPlayer 
+                                                                                        ? 'bg-amber-600 text-white rounded-2xl rounded-br-none' 
+                                                                                        : 'bg-white text-stone-800 border border-stone-200 rounded-2xl rounded-bl-none'
+                                                                                    }`}>
+                                                                                        {msg.text}
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                        {isReplying && (
+                                                                             <div className="flex w-full justify-start">
+                                                                                <div className="bg-white border border-stone-200 rounded-2xl rounded-bl-none px-3 py-2 shadow-sm">
+                                                                                     <div className="flex space-x-1">
+                                                                                        <div className="w-1.5 h-1.5 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                                                                        <div className="w-1.5 h-1.5 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                                                                        <div className="w-1.5 h-1.5 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                     <form onSubmit={handleChatSubmit} className="flex gap-2"><input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Say something..." disabled={isReplying} className="flex-grow p-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"/><button type="submit" disabled={isReplying || !chatInput.trim()} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-stone-400">Send</button></form>
                                                                 </div>
                                                             )}
